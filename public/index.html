@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shop Production Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Oswald:wght@400;500;700&family=Yellowtail&display=swap" rel="stylesheet">
+<script src="/vendor/xlsx.full.min.js"></script>
+<style>
+/* Southwest Body Shop brand kit, taken from southwestbodyshop.com's stylesheet:
+   primary red #D62828 / dark #A31616, graphite #1E1E1E, black #111111, vapor #F3F4F6, white, steel #457B9D,
+   body text #374151, muted #6B7280; Anton display, Oswald headings, Inter body; pill buttons, 4px small radius.
+   Body work = steel, paint = the site's amber star color. */
+:root{
+  --red:#D62828; --red-dark:#A31616; --graphite:#1E1E1E; --black:#111111; --vapor:#F3F4F6; --white:#FFFFFF;
+  --text:#374151; --radius-sm:4px; --radius-pill:9999px;
+  --bg:var(--vapor); --surface:var(--white); --surface2:var(--vapor); --ink:var(--graphite); --muted:#6B7280; --line:#E5E7EB;
+  --accent:var(--red); --accent-dark:var(--red-dark); --steel:#457B9D; --body:#457B9D; --paint:#E0960A; --reass:#8A9BAB;
+  --good:#15803d; --warn:#b45309; --bad:#b91c1c;
+  --display:'Anton',Impact,'Arial Narrow',sans-serif;
+  --head:'Oswald','Arial Narrow',Arial,sans-serif;
+  --script:'Yellowtail','Brush Script MT',cursive;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111111; --surface:#1e1e1e; --surface2:#262626; --ink:#f3f4f6; --text:#d1d5db; --accent-dark:#d62828; --muted:#9ca3af; --line:#333333;
+    --accent:#e84a4a; --steel:#7fb0cf; --body:#6aa3c8; --paint:#f5a623; --reass:#9aa9b8;
+    --good:#4ade80; --warn:#fbbf24; --bad:#f87171; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111111; --surface:#1e1e1e; --surface2:#262626; --ink:#f3f4f6; --text:#d1d5db; --accent-dark:#d62828; --muted:#9ca3af; --line:#333333;
+  --accent:#e84a4a; --steel:#7fb0cf; --body:#6aa3c8; --paint:#f5a623; --reass:#9aa9b8;
+  --good:#4ade80; --warn:#fbbf24; --bad:#f87171; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.5 var(--sans);font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0;text-wrap:balance;text-transform:uppercase;color:var(--ink)}
+h1{font-family:var(--display);font-weight:400;font-size:34px;line-height:1;letter-spacing:.01em}
+h2{font-family:var(--head);font-weight:700;font-size:19px;letter-spacing:.08em}
+h3{font-family:var(--head);font-weight:500;letter-spacing:.06em}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;border:2px solid var(--ink);color:var(--ink);background:transparent;border-radius:0;transition:background .2s ease,color .2s ease;padding:7px 14px;font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em}
+button:hover{background:var(--ink);color:var(--surface)}
+button:disabled{opacity:.35;cursor:default;background:transparent;color:var(--ink)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent);border-radius:var(--radius-pill);padding:8px 20px;box-shadow:0 4px 6px rgba(214,40,40,.2);transition:transform .2s ease,background .2s ease,box-shadow .2s ease}
+button.primary:hover{background:var(--accent-dark);border-color:var(--accent-dark);color:#fff;transform:translateY(-2px);box-shadow:0 6px 12px rgba(214,40,40,.3)}
+@media (prefers-reduced-motion:reduce){button.primary:hover{transform:none}}
+button.small{padding:3px 9px;font-size:11px;border-width:1.5px}
+button.icon{border:1px solid var(--line);text-transform:none;letter-spacing:0;font-weight:500}
+button.icon:hover{background:var(--surface2);color:var(--ink);border-color:var(--ink)}
+button.icon{padding:2px 7px;line-height:1.2;font-size:12px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=number],input[type=date],input[type=text],select,textarea{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius-sm);padding:4px 6px}
+input[type=number]{width:62px;text-align:right}
+.top{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:4px solid var(--accent);background:var(--surface)}
+.brand{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.logo{display:flex;flex-direction:column;text-decoration:none;color:var(--ink);padding-right:22px;border-right:1px solid var(--line)}
+.logo-script{font-family:var(--script);color:var(--red);font-size:35px;line-height:1;letter-spacing:.02em;transform:rotate(-3deg) skew(-5deg);margin-bottom:-8px;text-shadow:2px 2px 0 rgba(0,0,0,.1);display:block}
+.logo-sans{font-family:var(--head);text-transform:uppercase;font-size:13.6px;letter-spacing:.25em;margin-left:10px;line-height:1.2;color:var(--ink)}
+.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--steel);font-weight:600}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.banner{margin:14px 24px 0;padding:9px 14px;border-radius:var(--radius-sm);background:color-mix(in srgb,var(--warn) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));font-size:13px}
+main{padding:16px 24px 40px;display:flex;flex-direction:column;gap:16px;max-width:1500px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 14px;border-top:4px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi .lab{font-family:var(--head);font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:500}
+.kpi .val{color:var(--ink);font-family:var(--display);font-size:30px;font-weight:400;line-height:1.15;margin-top:4px;text-transform:uppercase}
+.kpi .sub{font-size:12.5px;color:var(--muted)}
+.kpi.body{border-top-color:var(--body)} .kpi.paint{border-top-color:var(--paint)}
+.kpi.bad{border-top-color:var(--bad)} .kpi.good{border-top-color:var(--good)} .kpi.warn{border-top-color:var(--warn)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card.feature{border-left:5px solid var(--accent);border-radius:0;box-shadow:0 10px 24px rgba(0,0,0,.08)}
+.cardhead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cardhead .tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.note{color:var(--muted);font-size:12.5px}
+#insightList{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
+#insightList li{padding:8px 12px;border-left:4px solid var(--steel);background:var(--surface2);max-width:110ch}
+#insightList li.bad{border-left-color:var(--bad)} #insightList li.warn{border-left-color:var(--warn)} #insightList li.good{border-left-color:var(--good)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:6px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-2px;margin-right:5px}
+.sw.body{background:var(--body)} .sw.paint{background:var(--paint)} .sw.reass{background:var(--reass)} .sw.cap{border:1.5px dashed var(--muted)}
+#chart svg{width:100%;height:auto;display:block}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th{font-family:var(--head);font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface)}
+td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.num,th.num{text-align:right}
+#board{min-width:1320px;table-layout:fixed}
+#board th.techcol{width:150px}
+#board td{vertical-align:top;border-left:1px solid var(--line);padding:4px}
+#board th.mon,#board td.mon{border-left:2px solid var(--muted)}
+.techname{font-family:var(--head);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.techmeta{font-size:12px;color:var(--muted)}
+.capbar{height:5px;border-radius:3px;background:var(--surface2);border:1px solid var(--line);overflow:hidden;margin-bottom:4px}
+.capbar span{display:block;height:100%}
+.chip{display:flex;flex-wrap:wrap;column-gap:4px;justify-content:space-between;font-size:11px;padding:1px 4px;margin-bottom:3px;border-radius:3px;border-left:3px solid;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;background:var(--surface2)}
+.chip .cn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.chip .ch{flex-shrink:0;color:var(--muted)}
+.chip.repair{border-left-color:var(--body);background:color-mix(in srgb,var(--body) 16%,var(--surface))}
+.chip.paint{border-left-color:var(--paint);background:color-mix(in srgb,var(--paint) 20%,var(--surface))}
+.chip.reass{border-left-color:var(--reass);background:color-mix(in srgb,var(--reass) 18%,var(--surface))}
+.chip.sel{outline:2px solid var(--ink)}
+.chip.dim{opacity:.35}
+.off{font-size:11px;color:var(--muted)}
+#jobs{min-width:1700px}
+#jobs tr.sel td{background:color-mix(in srgb,var(--accent) 9%,var(--surface))}
+#jobs input[type=text]{width:100%;min-width:90px}
+#jobs input[id^=ins_]{width:110px}
+#jobs input.ro{width:72px;min-width:0;font-weight:600}
+#jobs input[type=date]{width:128px}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid}
+.pill.good{color:var(--good);border-color:color-mix(in srgb,var(--good) 50%,var(--line));background:color-mix(in srgb,var(--good) 10%,var(--surface))}
+.pill.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,var(--line));background:color-mix(in srgb,var(--warn) 12%,var(--surface))}
+.pill.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 50%,var(--line));background:color-mix(in srgb,var(--bad) 10%,var(--surface))}
+.pill.mute{color:var(--muted);border-color:var(--line)}
+.when{white-space:nowrap;font-size:12.5px}
+.when b{font-weight:600}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:16px;align-items:start}
+.formrow{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:10px}
+.formrow label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:3px}
+tr.rec td{background:color-mix(in srgb,var(--good) 12%,var(--surface));font-weight:600}
+.days{display:flex;gap:2px}
+.days label{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--line);border-radius:4px;font-size:11px;cursor:pointer;user-select:none}
+.days input{position:absolute;opacity:0;pointer-events:none}
+.days label.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.settings{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.settings label{display:flex;gap:8px;align-items:center}
+.overlay{position:fixed;inset:0;background:rgba(10,15,20,.55);display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto;z-index:20}
+.overlay[hidden]{display:none}
+.modal{background:var(--surface);border-radius:var(--radius-sm);border-top:4px solid var(--accent)!important;max-width:980px;width:100%;padding:18px 20px;border:1px solid var(--line)}
+.modal textarea{width:100%;min-height:130px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace}
+.mapgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px 14px;margin:10px 0}
+.mapgrid label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:3px}
+.mapgrid select{width:100%}
+.err{color:var(--bad);font-weight:500}
+.steps{margin:6px 0 12px;padding-left:20px;max-width:90ch}
+.steps li{margin-bottom:3px}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:6px;font-size:13px;z-index:30}
+#toast[hidden]{display:none}
+.compare td,.compare th{font-size:12.5px}
+.site-foot{background:#1e1e1e;color:#fff;padding:28px 24px 0;margin-top:8px}
+.site-foot .inner{display:flex;flex-wrap:wrap;gap:16px 40px;align-items:center;justify-content:space-between;max-width:1500px;padding-bottom:20px;border-bottom:1px solid rgba(255,255,255,.1)}
+.site-foot .logo{border-right:0;padding-right:0}
+.site-foot .logo-sans{color:#d1d5db}
+.site-foot p{margin:0;color:#9ca3af;max-width:60ch}
+.site-foot .bottom{padding:14px 0;color:#6b7280;font-size:12.5px;max-width:1500px}
+ /* Shop Schedule: big-screen view for the shop monitor. Fixed dark scheme for legibility at distance. */
+#tv{position:fixed;inset:0;z-index:15;background:#111111;color:#f5f5f5;display:flex;flex-direction:column;padding:2.2vh 2.4vw 1.6vh;color-scheme:dark;font-family:var(--sans)}
+#tv[hidden]{display:none}
+.tv-head{display:flex;align-items:center;gap:2vw;border-bottom:4px solid #D62828;padding-bottom:1.6vh}
+.tv-head .logo{border-right:1px solid #3a3a3a;color:#f5f5f5;padding-right:2vw}
+.tv-head .logo-script{color:#ef3b3b;font-size:clamp(28px,3vw,56px)}
+.tv-head .logo-sans{font-size:clamp(11px,.9vw,17px);color:#f5f5f5}
+.tv-sandbox{font-family:var(--head);text-transform:uppercase;letter-spacing:.14em;font-size:clamp(11px,.95vw,17px);color:#fbbf24;border:2px solid #fbbf24;padding:.4vh .9vw;white-space:nowrap}
+.tv-sandbox[hidden]{display:none}
+.tv-title{font-family:var(--display);font-weight:400;font-size:clamp(30px,3.4vw,64px);letter-spacing:.02em;flex:1;color:#fff}
+.tv-clock{text-align:right;font-family:var(--head);text-transform:uppercase;letter-spacing:.08em;color:#cfcfcf;font-size:clamp(14px,1.3vw,24px);line-height:1.25}
+.tv-clock b{display:block;font-family:var(--display);font-weight:400;color:#fff;font-size:clamp(26px,2.6vw,48px);letter-spacing:.02em}
+.tv-grid{display:grid;grid-template-columns:minmax(11ch,1.1fr) 2fr 1.3fr 1.7fr;column-gap:2vw;align-items:center}
+.tv-cols{font-family:var(--head);text-transform:uppercase;letter-spacing:.14em;color:#8f8f8f;font-size:clamp(12px,1vw,18px);padding:1.4vh 1.2vw .8vh}
+#tvRows{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:.7vh}
+.tv-row{background:#1E1E1E;border-radius:4px;border-left:8px solid #3a3a3a;padding:1.1vh 1.2vw;min-height:7.2vh}
+.tv-row.today{border-left-color:#ef3b3b;background:#2a1a1a}
+.tv-row.soon{border-left-color:#f5a623}
+.tv-row.ready{border-left-color:#4ade80}
+.tv-date{font-family:var(--display);font-size:clamp(22px,2.4vw,46px);line-height:1;color:#fff;letter-spacing:.01em}
+.tv-date small{display:block;font-family:var(--head);font-size:clamp(11px,.85vw,16px);letter-spacing:.12em;color:#ef3b3b;margin-top:.4vh}
+.tv-row.soon .tv-date small{color:#f5a623}
+.tv-row.ready .tv-date small{color:#4ade80}
+.tv-name{font-family:var(--head);font-weight:500;text-transform:uppercase;letter-spacing:.04em;font-size:clamp(20px,2.2vw,42px);line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-name small{display:block;font-family:var(--sans);text-transform:none;letter-spacing:0;font-weight:400;color:#9a9a9a;font-size:clamp(11px,.85vw,16px);margin-top:.3vh}
+.tv-make{font-family:var(--head);text-transform:uppercase;letter-spacing:.08em;font-size:clamp(18px,1.8vw,34px);color:#e5e5e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-now{display:flex;align-items:center;gap:.8vw;font-size:clamp(13px,1.1vw,21px);color:#d4d4d4;white-space:nowrap;overflow:hidden}
+.tv-dot{width:1.1vw;height:1.1vw;min-width:12px;min-height:12px;border-radius:50%;flex-shrink:0}
+.tv-foot{display:flex;justify-content:space-between;align-items:center;gap:2vw;color:#8f8f8f;font-size:clamp(12px,.95vw,17px);padding-top:1.2vh;border-top:1px solid #2e2e2e;margin-top:1vh}
+.tv-pages{display:flex;gap:6px}
+.tv-pages i{width:28px;height:5px;background:#3a3a3a;display:block}
+.tv-pages i.on{background:#ef3b3b}
+.tv-ctrl{display:flex;gap:8px}
+.tv-ctrl button{border-color:#5a5a5a;color:#d4d4d4;font-size:11px;padding:4px 10px}
+.tv-ctrl button:hover{background:#F3F4F6;color:#111111}
+#tv.idle .tv-ctrl{opacity:0;transition:opacity .4s}
+.tv-empty{font-family:var(--head);text-transform:uppercase;letter-spacing:.1em;color:#8f8f8f;font-size:2vw;padding:6vh 1vw}
+@media (max-width:600px){ .top,main{padding-left:16px;padding-right:16px} .banner{margin:12px 16px 0} .grid2{grid-template-columns:1fr} }
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <a class="logo" href="https://southwestbodyshop.com" aria-label="Southwest Body Shop website"><span class="logo-script">Southwest</span><span class="logo-sans">Body Shop</span></a>
+    <div>
+      <div class="eyebrow">Est. 1967 · Kansas City</div>
+      <h1>Production Planner</h1>
+      <div class="note" id="asOf"></div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="primary" id="btnImport" type="button">Import from CCC ONE</button>
+    <button id="btnTV" type="button">Shop Schedule</button>
+    <button id="btnCopy" type="button">Copy schedule</button>
+    <button id="btnSample" type="button">Load sample jobs</button>
+  </div>
+</header>
+<div class="banner" id="sampleBanner" hidden>You're looking at <b>sample jobs</b> so you can see how the planner works. Use <b>Import from CCC ONE</b> to load your real work in process.</div>
+
+<main>
+  <section class="kpis" id="kpis" aria-label="Summary"></section>
+
+  <section class="card feature">
+    <h2>What to act on</h2>
+    <ul id="insightList"></ul>
+  </section>
+
+  <section class="card">
+    <div class="cardhead">
+      <h2>Booked hours vs. capacity, by day</h2>
+      <div class="tools">
+        <label class="note" for="horizonSel">Show</label>
+        <select id="horizonSel"><option value="10">2 weeks</option><option value="15">3 weeks</option><option value="20">4 weeks</option></select>
+      </div>
+    </div>
+    <div id="chart"></div>
+    <div class="legend"><span><i class="sw body"></i>Body work booked (repair + reassembly)</span><span><i class="sw paint"></i>Paint booked</span><span><i class="sw cap"></i>Available hours</span></div>
+  </section>
+
+  <section class="card">
+    <div class="cardhead">
+      <h2>Technician board</h2>
+      <span class="note">Click any job to highlight it across the board and the queue.</span>
+    </div>
+    <div class="scroll"><table id="board"></table></div>
+    <div class="legend"><span><i class="sw body"></i>Body repair</span><span><i class="sw paint"></i>Paint</span><span><i class="sw reass"></i>Reassembly</span><span>Bar above each day = share of that tech's hours booked</span></div>
+  </section>
+
+  <section class="card">
+    <div class="cardhead">
+      <h2>Job queue</h2>
+      <div class="tools">
+        <button id="btnAutoSort" type="button" class="small">Auto-sort: in-shop, then priority carriers, then by target</button>
+        <button id="btnAddJob" type="button" class="small">Add job</button>
+      </div>
+    </div>
+    <p class="note" style="margin:0 0 8px">Jobs are scheduled top to bottom. Jobs already being worked stay first, then priority carriers (★), then everyone else, each by target date. Use the arrows to change who goes first. Hours are what's left to do; edit any cell and the schedule updates.</p>
+    <div class="scroll"><table id="jobs"></table></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>Best drop-off day for a new job</h2>
+      <p class="note" style="margin:4px 0 10px">Enter the estimate's labor hours. The planner slots it behind everything already in the queue and shows what happens for each drop-off day.</p>
+      <div class="formrow">
+        <label for="pBody">Body hrs<input type="number" id="pBody" step="0.1" min="0" value="4.6"></label>
+        <label for="pPaint">Refinish hrs<input type="number" id="pPaint" step="0.1" min="0" value="4.8"></label>
+        <label for="pIns">Insurance<input type="text" id="pIns" value="State Farm" style="width:130px"></label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="small" data-preset="2.5,3.2">Light: bumper cover</button>
+          <button type="button" class="small" data-preset="4.6,4.8">Fender + blend</button>
+          <button type="button" class="small" data-preset="16,10.5">Heavy hit</button>
+        </div>
+      </div>
+      <div id="plannerOut"></div>
+    </div>
+
+    <div class="card">
+      <div class="cardhead">
+        <h2>Crew &amp; capacity</h2>
+        <div class="tools">
+          <button type="button" class="small" id="presetCurrent">Current crew</button>
+          <button type="button" class="small" id="presetProposed">Proposed restructure</button>
+          <button type="button" class="small" id="btnAddTech">Add tech</button>
+        </div>
+      </div>
+      <div class="scroll"><table id="crew"></table></div>
+      <p class="note" style="margin:6px 0 0">Efficiency = flagged hours produced per clock hour. A tech who flags 10 hours in an 8-hour day is 125%.</p>
+      <h3 style="font-size:17px;margin-top:14px">Crew comparison on this queue</h3>
+      <div class="scroll"><table class="compare" id="compare"></table></div>
+      <div class="settings">
+        <label><input type="checkbox" id="setFM"> Count frame and mechanical hours as body work</label>
+        <label><input type="checkbox" id="setHandoff"> Each hand-off waits for the next work day (booth cure, masking)</label>
+        <label for="setPri" style="flex-wrap:wrap">Priority carriers: <input type="text" id="setPri" style="flex:1;min-width:200px" placeholder="State Farm"> <span class="note">Comma-separated. Their jobs go ahead of other jobs that haven't started.</span></label>
+        <label for="setClosed" style="flex-wrap:wrap">Shop closed: <input type="text" id="setClosed" style="flex:1;min-width:200px" placeholder="11/26/2026, 12/25/2026"></label>
+        <label>Most labor hours on one car per day: <input type="number" id="setCap" min="0" max="24" step="0.5"> <span class="note">0 = no limit</span></label>
+        <label>Customer promise date: estimated completion + <input type="number" id="setBuf" min="0" max="15" step="1"> work days</label>
+        <label>Reassembly after paint: <input type="number" id="setReass" min="0" max="60" step="5"> % of body hours</label>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-foot">
+  <div class="inner">
+    <a class="logo" href="https://southwestbodyshop.com" aria-label="Southwest Body Shop website"><span class="logo-script">Southwest</span><span class="logo-sans">Body Shop</span></a>
+    <p>Production Planner for the shop team. Schedules come from CCC ONE imports, and dates are estimates until the work is done.</p>
+  </div>
+  <div class="bottom">Southwest Body Shop · Est. 1967 · Kansas City · Internal tool</div>
+</footer>
+
+<div id="tv" hidden aria-label="Shop Schedule">
+  <div class="tv-head">
+    <div class="logo"><span class="logo-script">Southwest</span><span class="logo-sans">Body Shop</span></div>
+    <h1 class="tv-title">Shop Schedule</h1>
+    <span class="tv-sandbox" id="tvSandbox" title="Preview only. Not on the shop monitor yet.">Sandbox preview</span>
+    <div class="tv-clock" id="tvClock"></div>
+  </div>
+  <div class="tv-grid tv-cols"><span>Delivery</span><span>Customer</span><span>Make</span><span>In the shop now</span></div>
+  <div id="tvRows"></div>
+  <div class="tv-foot"><span id="tvFoot"></span><span class="tv-pages" id="tvPages"></span><span class="tv-ctrl"><button type="button" id="tvFull">Full screen</button><button type="button" id="tvBack">Back to planner</button></span></div>
+</div>
+
+<div class="overlay" id="importOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="impTitle">
+    <div class="cardhead"><h2 id="impTitle">Import work in process from CCC ONE</h2><button type="button" class="small" id="impClose">Close</button></div>
+    <ol class="steps note">
+      <li>In CCC ONE, open the job list or report you use to track work in process. It needs the RO or workfile number and the body and refinish labor hours; drop-off and target delivery dates make the schedule much better.</li>
+      <li>Export it to Excel or CSV, or select the rows and copy them.</li>
+      <li>Paste below (include the header row) or choose the file. Columns are matched automatically; fix any that are wrong. Your matches are remembered for next time.</li>
+      <li>Each morning after that: export, paste, and click <b>Daily refresh</b>.</li>
+    </ol>
+    <div class="formrow">
+      <label for="impFile">File (.csv, .txt, .xlsx)<input type="file" id="impFile" accept=".csv,.txt,.tsv,.xlsx,.xls"></label>
+    </div>
+    <label for="impText" class="note">Or paste rows here</label>
+    <textarea id="impText" placeholder="RO#	Owner	Vehicle	Insurance	Scheduled In	Target Delivery	Body Hrs	Refinish Hrs"></textarea>
+    <div style="margin-top:8px;display:flex;gap:8px"><button type="button" id="impParse">Read columns</button><span id="impMsg" class="note"></span></div>
+    <div id="impMap"></div>
+  </div>
+</div>
+
+<div class="overlay" id="copyOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="copyTitle">
+    <div class="cardhead"><h2 id="copyTitle">Schedule (tab-separated)</h2><button type="button" class="small" id="copyClose">Close</button></div>
+    <p class="note">Your browser blocked the clipboard. Select all of this and copy it, then paste into Excel.</p>
+    <textarea id="copyText" style="min-height:300px"></textarea>
+  </div>
+</div>
+<div id="toast" hidden></div>
+
+<script>
+(function(){
+'use strict';
+const $ = s => document.querySelector(s);
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const STATUSES = ['Not arrived','Waiting parts','Ready','In body','In paint','Reassembly','Hold'];
+const STAGE_LABEL = {repair:'Body repair', paint:'Paint', reass:'Reassembly'};
+const STORE_KEY = 'swbs-production-planner-v1';
+
+/* ---------- dates ---------- */
+const TODAY = (()=>{const d=new Date(); d.setHours(0,0,0,0); return d;})();
+const addDays=(d,n)=>{const x=new Date(d); x.setDate(x.getDate()+n); return x;};
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const parseIso=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||''); return m?new Date(+m[1],+m[2]-1,+m[3]):null;};
+const fmt=d=>d?DOW[d.getDay()]+' '+(d.getMonth()+1)+'/'+d.getDate():'—';
+function addWorkdays(d,n){let x=new Date(d),c=0; while(c<n){x=addDays(x,1); if(x.getDay()%6)c++;} return x;}
+const uid=()=>Math.random().toString(36).slice(2,10);
+const r1=n=>Math.round(n*10)/10;
+
+/* ---------- defaults ---------- */
+const CREW_CURRENT=()=>[
+  {id:uid(),name:'Body Tech 1',role:'Body',hours:8,eff:100,days:[1,2,3,4,5]},
+  {id:uid(),name:'Body Tech 2',role:'Body',hours:8,eff:100,days:[1,2,3,4,5]},
+  {id:uid(),name:'Painter',role:'Paint',hours:8,eff:100,days:[1,2,3,4,5]},
+  {id:uid(),name:'Part-time Painter',role:'Paint',hours:4,eff:100,days:[1,2,3,4,5]}
+];
+const CREW_PROPOSED=()=>[
+  {id:uid(),name:'Body Tech (FT)',role:'Body',hours:8,eff:100,days:[1,2,3,4,5]},
+  {id:uid(),name:'Body/Paint (PT)',role:'Both',hours:5,eff:100,days:[1,2,3,4,5]},
+  {id:uid(),name:'Painter (PT)',role:'Paint',hours:4,eff:100,days:[1,2,3,4,5]}
+];
+function sampleJobs(){
+  const w=n=>iso(addWorkdays(TODAY,n));
+  const mon=addDays(TODAY,-((TODAY.getDay()+6)%7));
+  const thisMon=iso(mon), nextMon=iso(addDays(mon,7));
+  const R=[
+    ['24511','2021 Toyota Camry SE','K. Alvarez','State Farm','In paint',thisMon,'',w(1),6.5,0,0,5.2],
+    ['24513','2022 Honda CR-V EX','M. Patel','State Farm','Reassembly',thisMon,'',w(1),9.0,0,0,7.4],
+    ['24512','2019 Ford F-150 XLT','D. Nguyen','Progressive','In body',thisMon,'',w(4),14.8,0,1.0,9.6],
+    ['24514','2018 Chevrolet Equinox LT','J. Brooks','Shelter','In body',thisMon,'',w(6),22.5,4.0,1.5,11.8],
+    ['24515','2020 Nissan Altima SV','T. Williams','Customer pay','Ready',thisMon,'',w(2),3.2,0,0,3.4],
+    ['24516','2017 Jeep Grand Cherokee','L. Romero','American Family','Waiting parts',thisMon,w(3),w(8),11.4,0,0,8.0],
+    ['24520','2023 Toyota RAV4 XLE','S. Kim','State Farm','Not arrived',nextMon,'',w(5),2.1,0,0,3.0],
+    ['24521','2016 Honda Accord EX','B. Carter','GEICO','Not arrived',nextMon,'',w(7),4.6,0,0,4.8],
+    ['24522','2021 Chevrolet Silverado 1500','R. Davis','State Farm','Not arrived',nextMon,'',w(9),18.2,0,2.0,12.5],
+    ['24523','2019 Hyundai Tucson SEL','A. Moore','Farm Bureau','Not arrived',nextMon,'',w(6),2.8,0,0,3.6],
+    ['24524','2022 Kia Telluride EX','P. Hughes','State Farm','Not arrived',nextMon,'',w(10),16.0,3.5,0,10.2],
+    ['24525','2015 Ford Escape SE','C. Bell','Customer pay','Not arrived',nextMon,'',w(5),3.0,0,0,2.9],
+    ['24526','2020 Subaru Outback','E. Foster','Progressive','Not arrived',nextMon,'',w(10),12.6,0,0,9.1],
+    ['24527','2018 Toyota Tacoma SR5','G. Price','State Farm','Not arrived',nextMon,'',w(9),7.4,0,1.2,6.0]
+  ];
+  return R.map(r=>({id:uid(),ro:r[0],vehicle:r[1],owner:r[2],insurer:r[3],status:r[4],drop:r[5],parts:r[6],target:r[7],body:r[8],frame:r[9],mech:r[10],paint:r[11]}));
+}
+const DEFAULT_CLOSED='11/26/2026, 12/25/2026, 1/1/2027';
+function defaultState(){return {crew:CREW_CURRENT(),jobs:sampleJobs(),settings:{fm:true,handoff:true,reassPct:20,horizon:15,closed:DEFAULT_CLOSED},isSample:true};}
+
+// The 11/13 starter data now lives in the shared online copy (see /api/state), not in this file.
+let state;
+try{ const raw=localStorage.getItem(STORE_KEY); state=raw?JSON.parse(raw):null; }catch(e){ state=null; }
+if(!state||!Array.isArray(state.crew)||!Array.isArray(state.jobs)) state=defaultState();
+if(typeof SEED!=='undefined'&&state.seedId!==SEED.id){state.jobs=JSON.parse(JSON.stringify(SEED.jobs)); state.lastImport=SEED.at; state.isSample=false; state.seedId=SEED.id; state.savedMaps=Object.assign({},state.savedMaps||{},SEED.savedMaps); state._needCrew=true;}
+/* ---- Shared online copy -------------------------------------------------------------
+   When this page is served from the website (not opened as a file), the schedule is also
+   kept in one shared copy on the server (/api/state), so the shop monitor sees the same
+   data as the office. Last change wins; every screen checks for changes once a minute. */
+const ONLINE=/^https?:$/.test(location.protocol);
+let syncedBody=null, pushT=null, pushing=false, syncWarned=false;
+function bodyOf(s){const c=Object.assign({},s); delete c.updatedAt; return JSON.stringify(c);}
+function save(){
+  const b=bodyOf(state);
+  if(ONLINE&&syncedBody!==null&&!state.isSample&&b!==syncedBody){state.updatedAt=Date.now(); syncedBody=b; clearTimeout(pushT); pushT=setTimeout(pushState,800);}
+  try{ localStorage.setItem(STORE_KEY,JSON.stringify(state)); }catch(e){}
+}
+async function pushState(){
+  if(pushing){clearTimeout(pushT); pushT=setTimeout(pushState,1000); return;}
+  pushing=true;
+  try{
+    const r=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(state),credentials:'same-origin'});
+    if(r.status===401){location.reload(); return;}
+    if(r.status===409){const d=await r.json(); if(d&&d.state) adoptRemote(d.state); return;}
+    if(!r.ok) throw new Error(r.status);
+    if(syncWarned){toast('Back online. Changes saved to the shop copy.'); syncWarned=false;}
+  }catch(e){
+    if(!syncWarned){toast('Couldn’t reach the shop copy. Your changes are kept here and will retry.'); syncWarned=true;}
+    clearTimeout(pushT); pushT=setTimeout(pushState,30000);
+  }finally{pushing=false;}
+}
+function adoptRemote(n){
+  if(!n||!Array.isArray(n.jobs)||!Array.isArray(n.crew)) return;
+  // The monitor reloads so dates and the schedule are recomputed from scratch.
+  if(!$('#tv').hidden){ try{localStorage.setItem(STORE_KEY,JSON.stringify(n));}catch(e){} location.reload(); return; }
+  state=n; syncedBody=bodyOf(state);
+  try{ localStorage.setItem(STORE_KEY,JSON.stringify(state)); }catch(e){}
+  render();
+}
+async function pullState(first){
+  if(!ONLINE||pushing||pushT&&syncedBody!==bodyOf(state)) return;
+  try{
+    const r=await fetch('/api/state',{cache:'no-store',credentials:'same-origin'});
+    if(r.status===401){location.reload(); return;}
+    if(!r.ok) return;
+    const n=await r.json();
+    if(n&&Array.isArray(n.jobs)){
+      if((n.updatedAt||0)>(state.updatedAt||0)||first&&!state.updatedAt) adoptRemote(n);
+      else if(first){syncedBody=bodyOf(state); if((n.updatedAt||0)<(state.updatedAt||0)) pushState();}
+    }else if(first){ // shared copy is empty: start it from this screen (sample jobs stay local until a real import)
+      syncedBody=state.isSample?'':bodyOf(state);
+      if(!state.isSample){state.updatedAt=Date.now(); syncedBody=bodyOf(state); pushState();}
+    }
+  }catch(e){}
+}
+let selectedJob=null;
+if(state.settings.closed===undefined) state.settings.closed=DEFAULT_CLOSED;
+let CLOSED=new Set();
+if(state.settings.priority===undefined){state.settings.priority='State Farm'; state.jobs.sort((a,b)=>jobRank(a)-jobRank(b)||cmpDates(a,b));}
+function priList(){return String(state.settings.priority||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);}
+function isPri(ins){const v=String(ins||'').toLowerCase(); return !!v&&priList().some(p=>v.includes(p));}
+function jobRank(j){
+  if(j.status==='Hold') return 9;
+  if(j.status==='In paint'||j.status==='Reassembly') return 0;
+  if(j.status==='In body') return 1;
+  const pri=isPri(j.insurer)?2:5;
+  return pri+(j.status==='Ready'?0:j.status==='Waiting parts'?1:2)*0.1;
+}
+function cmpDates(a,b){return String(a.target||'9999').localeCompare(String(b.target||'9999'))||String(a.drop).localeCompare(String(b.drop));}
+function sortQueue(){state.jobs.sort((a,b)=>jobRank(a)-jobRank(b)||cmpDates(a,b));}
+function syncClosed(){CLOSED=new Set(String(state.settings.closed||'').split(/[\s,]+/).map(parseDateAny).filter(Boolean));}
+
+/* ---------- scheduling engine ---------- */
+function normName(x){return String(x||'').toLowerCase().replace(/\(.*?\)/g,' ').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();}
+function cleanTech(x){const v=String(x||'').trim(); return /^(n\/?a|none|unassigned|-+)?$/i.test(v)?'':v;}
+function findTech(crew,name){
+  const n=normName(name); if(!n) return -1;
+  let i=crew.findIndex(t=>normName(t.name)===n); if(i>=0) return i;
+  const f=n.split(' ')[0]; return crew.findIndex(t=>normName(t.name).split(' ')[0]===f);
+}
+function titleName(x){return String(x||'').toLowerCase().replace(/(^|[\s'-])([a-z])/g,(m,p,c)=>p+c.toUpperCase()).replace(/\b([A-Z])$/,'$1.');}
+const GENERIC={Body:/^body tech( \d)?$/i,Paint:/^(part-time )?painter$/i};
+function ensureCrew(jobs){
+  const info={};
+  jobs.forEach(j=>{const b=cleanTech(j.bodyTech),p=cleanTech(j.paintTech);
+    if(b){(info[normName(b)]=info[normName(b)]||{name:b,body:0,paint:0,solo:0}).body++; if(normName(b)!==normName(p)) info[normName(b)].solo++;}
+    if(p){(info[normName(p)]=info[normName(p)]||{name:p,body:0,paint:0,solo:0}).paint++;}});
+  const added=[];
+  Object.values(info).sort((x,y)=>(y.body+y.paint)-(x.body+x.paint)).forEach(t=>{
+    if(findTech(state.crew,t.name)>=0) return;
+    const role=t.paint&&t.solo?'Both':t.paint?'Paint':'Body';
+    const order=role==='Body'?['Body']:role==='Paint'?['Paint']:['Paint','Body'];
+    let slot=-1; for(const r of order){ slot=state.crew.findIndex(c=>GENERIC[r].test(c.name)&&c.role===r); if(slot>=0) break; }
+    const nm=titleName(t.name);
+    if(slot>=0){state.crew[slot]._was=state.crew[slot].name; state.crew[slot].name=nm; state.crew[slot].role=role; added.push(nm+' in place of '+state.crew[slot]._was);}
+    else {state.crew.push({id:uid(),name:nm,role,hours:8,eff:100,days:[1,2,3,4,5]}); added.push(nm+' (new, 8 h/day)');}
+  });
+  return added;
+}
+function buildCal(crew){
+  const cal=[];
+  for(let i=0;i<450&&cal.length<130;i++){const d=addDays(TODAY,i); if(CLOSED.has(iso(d))) continue; if(crew.some(t=>t.hours>0&&t.days.includes(d.getDay()))) cal.push(d);}
+  return cal;
+}
+function idxOf(cal,s){const d=parseIso(s); if(!d||!cal.length) return 0; for(let i=0;i<cal.length;i++) if(cal[i]>=d) return i; return cal.length-1;}
+const capOf=(t,d)=>t.days.includes(d.getDay())?(+t.hours||0)*(+t.eff||100)/100:0;
+const canDo=(t,st)=>st==='paint'?(t.role==='Paint'||t.role==='Both'):(t.role==='Body'||t.role==='Both');
+function stageHours(job,S){
+  const fm=S.fm?(+job.frame||0)+(+job.mech||0):0, b=+job.body||0, p=+job.paint||0, r=(+S.reassPct||0)/100;
+  if(job.status==='In paint') return {repair:0,paint:p,reass:b*r};
+  if(job.status==='Reassembly') return {repair:0,paint:0,reass:b*r};
+  return {repair:b*(1-r)+fm,paint:p,reass:b*r};
+}
+function tryAlloc(rem,hrs,start,used,cap){
+  let left=hrs; const parts=[];
+  for(let d=start; d<rem.length && left>1e-6; d++){ const room=cap>0?Math.max(0,cap-(used[d]||0)):Infinity; const a=Math.min(rem[d],left,room); if(a>1e-6){parts.push([d,a]); left-=a;} }
+  return {parts, ok:left<=1e-6, first:parts.length?parts[0][0]:start, end:parts.length?parts[parts.length-1][0]:start};
+}
+function runJob(job,ctx,record){
+  const {cal,rem,crew,S}=ctx, h=stageHours(job,S), gap=S.handoff?1:0, cap=+(S.carCap??4)||0, used={};
+  let e=idxOf(cal,job.drop);
+  if(job.parts && ['Not arrived','Waiting parts','Ready'].includes(job.status)) e=Math.max(e,idxOf(cal,job.parts));
+  const out={stages:{},start:e,missing:[],overflow:false}; let lastEnd=null, repairTech=null;
+  for(const st of ['repair','paint','reass']){
+    const hrs=h[st]; if(hrs<0.05) continue;
+    const start=lastEnd===null?e:Math.max(e,lastEnd+gap);
+    let cands=crew.map((t,i)=>i).filter(i=>canDo(crew[i],st));
+    if(st==='reass'&&repairTech!==null) cands=[repairTech];
+    const lock=cleanTech(st==='paint'?job.paintTech:job.bodyTech);
+    if(lock){const li=findTech(crew,lock); if(li>=0) cands=[li];}
+    if(!cands.length){out.missing.push(st); continue;}
+    let best=null;
+    for(const ti of cands){const r=tryAlloc(rem[ti],hrs,start,used,cap); if(!r.ok) continue; if(!best||r.end<best.end||(r.end===best.end&&r.first<best.first)) best={...r,ti};}
+    if(!best){out.overflow=true; break;}
+    for(const [d,a] of best.parts){ rem[best.ti][d]-=a; used[d]=(used[d]||0)+a; if(record) record.push({ti:best.ti,d,a,st,job}); }
+    out.stages[st]={ti:best.ti,first:best.first,end:best.end,hrs};
+    if(st==='repair') repairTech=best.ti;
+    lastEnd=best.end;
+  }
+  out.done=lastEnd===null?e:lastEnd; out.empty=lastEnd===null;
+  return out;
+}
+function schedule(crew,jobs,S){
+  const cal=buildCal(crew);
+  const cap=crew.map(t=>cal.map(d=>capOf(t,d)));
+  const rem=cap.map(r=>r.slice());
+  const segs=[], res=new Map(), ctx={cal,rem,crew,S};
+  for(const j of jobs){ if(j.status==='Hold'){res.set(j.id,{hold:true}); continue;} res.set(j.id,runJob(j,ctx,segs)); }
+  const book=crew.map(()=>cal.map(()=>({repair:0,paint:0,reass:0})));
+  for(const s of segs) book[s.ti][s.d][s.st]+=s.a;
+  return {cal,cap,rem,segs,res,book,crew,S};
+}
+function deptDay(sch,i){
+  let bCap=0,bBook=0,pCap=0,pBook=0;
+  sch.crew.forEach((t,ti)=>{
+    const c=sch.cap[ti][i]||0, bk=sch.book[ti][i]; const bb=bk.repair+bk.reass, pb=bk.paint;
+    if(t.role==='Body'){bCap+=c; bBook+=bb;}
+    else if(t.role==='Paint'){pCap+=c; pBook+=pb;}
+    else {const free=Math.max(0,c-bb-pb); bCap+=bb+free/2; pCap+=pb+free/2; bBook+=bb; pBook+=pb;}
+  });
+  return {bCap,bBook,pCap,pBook};
+}
+function deptTotals(sch,H){let t={bCap:0,bBook:0,pCap:0,pBook:0}; for(let i=0;i<Math.min(H,sch.cal.length);i++){const d=deptDay(sch,i); for(const k in t) t[k]+=d[k];} return t;}
+function promiseIdx(sch,r){return Math.min(sch.cal.length-1,r.done+(+(sch.S.buffer??3)||0));}
+function jobFlag(sch,j){
+  const r=sch.res.get(j.id);
+  if(!r) return {cls:'mute',text:'—'};
+  if(r.hold) return {cls:'mute',text:j.note||'On hold'};
+  if(r.overflow) return {cls:'bad',text:'Past 6 months'};
+  if(r.missing&&r.missing.length) return {cls:'bad',text:'No '+r.missing.map(s=>STAGE_LABEL[s].toLowerCase()).join('/')+' tech'};
+  if(!j.target) return {cls:'mute',text:'No target'};
+  const td=parseIso(j.target), dd=sch.cal[r.done];
+  if(!td||!dd) return {cls:'mute',text:'—'};
+  if(dd>td){ const late=sch.cal.filter(d=>d>td&&d<=dd).length; return {cls:'bad',text:'Late '+late+' day'+(late===1?'':'s'),late:true}; }
+  const slack=sch.cal.filter(d=>d>dd&&d<=td).length;
+  return slack<=0?{cls:'warn',text:'Tight'}:{cls:'good',text:'On time'+(slack>=2?' (+'+slack+')':'')};
+}
+function busyWin(sch,H){const l=lastIdx(sch,()=>true); return Math.max(1,Math.min(H,l+1));}
+function lastIdx(sch,pred){let m=-1; for(const s of sch.segs) if(pred(s)&&s.d>m) m=s.d; return m;}
+function planDrop(sch,body,paint,days,insurer){
+  const out=[], pri=isPri(insurer);
+  for(let k=0;k<Math.min(days,sch.cal.length);k++){
+    const job={id:'tmp',drop:iso(sch.cal[k]),status:'Not arrived',insurer:insurer||'',body,frame:0,mech:0,paint,parts:''};
+    let r;
+    if(pri){
+      const list=state.jobs.slice(); let at=list.findIndex(j=>jobRank(j)>jobRank(job)); if(at<0) at=list.length; list.splice(at,0,job);
+      r=schedule(sch.crew,list,sch.S).res.get('tmp');
+    } else {
+      const rem=sch.rem.map(r=>r.slice());
+      r=runJob(job,{cal:sch.cal,rem,crew:sch.crew,S:sch.S},null);
+    }
+    if(r.overflow||r.empty){out.push({k,bad:true}); continue;}
+    const firstWork=Math.min(...Object.values(r.stages).map(s=>s.first));
+    out.push({k,first:firstWork,done:r.done,wait:firstWork-k,lot:r.done-k+1});
+  }
+  const ok=out.filter(o=>!o.bad);
+  if(ok.length){const minDone=Math.min(...ok.map(o=>o.done)); const rec=ok.filter(o=>o.done===minDone).pop(); rec.rec=true;}
+  return out;
+}
+
+/* ---------- rendering ---------- */
+let SCH=null;
+function render(){
+  syncClosed();
+  SCH=schedule(state.crew,state.jobs,state.settings);
+  $('#sampleBanner').hidden=!state.isSample;
+  const li=state.lastImport?new Date(state.lastImport):null, stale=li&&new Date(li).setHours(0,0,0,0)<TODAY.getTime();
+  $('#asOf').innerHTML='Schedule as of '+TODAY.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+' · '+(li?`<span style="${stale?'color:var(--bad);font-weight:600':''}">CCC ONE data from ${li.toLocaleDateString(undefined,{weekday:'short',month:'numeric',day:'numeric'})} ${li.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}${stale?' (refresh today)':''}</span>`:'No CCC ONE import yet');
+  $('#horizonSel').value=String(state.settings.horizon);
+  $('#setFM').checked=!!state.settings.fm; $('#setHandoff').checked=!!state.settings.handoff; $('#setReass').value=state.settings.reassPct; $('#setCap').value=state.settings.carCap??4; $('#setBuf').value=state.settings.buffer??3; $('#setClosed').value=state.settings.closed||''; $('#setPri').value=state.settings.priority||'';
+  renderKpis(); renderInsights(); renderChart(); renderBoard(); renderJobs(); renderPlanner(); renderCrew(); renderCompare();
+  save();
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function renderKpis(){
+  const s=SCH, H=state.settings.horizon, el=$('#kpis');
+  if(!s.cal.length){el.innerHTML='<div class="kpi bad"><div class="lab">No capacity</div><div class="val">Add a tech</div><div class="sub">Set up your crew below.</div></div>'; return;}
+  const bl=lastIdx(s,x=>x.st!=='paint'), pl=lastIdx(s,x=>x.st==='paint');
+  const W=busyWin(s,H), t=deptTotals(s,W), bu=t.bCap?t.bBook/t.bCap:0, pu=t.pCap?t.pBook/t.pCap:0;
+  const active=state.jobs.filter(j=>j.status!=='Hold');
+  const flags=active.map(j=>jobFlag(s,j)); const late=flags.filter(f=>f.late).length;
+  const bHrs=active.reduce((a,j)=>{const h=stageHours(j,state.settings);return a+h.repair+h.reass;},0);
+  const pHrs=active.reduce((a,j)=>a+stageHours(j,state.settings).paint,0);
+  const constraint=Math.abs(bu-pu)<=0.08?'Balanced':bu>pu?'Body':'Paint';
+  const avgB=active.length?bHrs/active.length:4, avgP=active.length?pHrs/active.length:4;
+  const pd=planDrop(s,r1(avgB),r1(avgP),25).find(o=>o.rec);
+  el.innerHTML=[
+    `<div class="kpi body"><div class="lab">Body work booked through</div><div class="val">${bl<0?'Open':fmt(s.cal[bl])}</div><div class="sub">${r1(bHrs)} body hrs in queue · ${bl+1} work days</div></div>`,
+    `<div class="kpi paint"><div class="lab">Paint booked through</div><div class="val">${pl<0?'Open':fmt(s.cal[pl])}</div><div class="sub">${r1(pHrs)} refinish hrs in queue · ${pl+1} work days</div></div>`,
+    `<div class="kpi ${Math.abs(bu-pu)<0.08?'warn':'bad'}"><div class="lab">Bottleneck, next ${W} work days</div><div class="val">${constraint}</div><div class="sub">Body ${Math.round(bu*100)}% booked · Paint ${Math.round(pu*100)}% booked</div></div>`,
+    `<div class="kpi ${late?'bad':'good'}"><div class="lab">Jobs past target</div><div class="val">${late} of ${active.length}</div><div class="sub">${late?'See the red flags in the queue':'Every job meets its target date'}</div></div>`,
+    `<div class="kpi"><div class="lab">Next drop-off slot</div><div class="val">${pd?fmt(s.cal[pd.k]):'—'}</div><div class="sub">For an average job (${r1(avgB)} body / ${r1(avgP)} paint hrs)${pd?', ready '+fmt(s.cal[pd.done]):''}</div></div>`
+  ].join('');
+}
+
+function renderInsights(){
+  const s=SCH, H=state.settings.horizon, items=[];
+  if(!s.cal.length){$('#insightList').innerHTML='<li class="bad">No one is on the schedule. Add techs in Crew &amp; capacity.</li>';return;}
+  const W=busyWin(s,H), t=deptTotals(s,W), bu=t.bCap?t.bBook/t.bCap:0, pu=t.pCap?t.pBook/t.pCap:0;
+  const bIdle=t.bCap-t.bBook, pIdle=t.pCap-t.pBook;
+  if(bu>pu+0.08) items.push(['bad',`<b>Body is the constraint.</b> Body techs are ${Math.round(bu*100)}% booked over the next ${W} work days while paint is ${Math.round(pu*100)}% booked, leaving about ${Math.round(pIdle)} paint hours with nothing ready to spray. Paint is waiting on body, so adding body hours (overtime, a part-time body tech, or a painter who can do light body work) moves cars out faster than adding paint hours.`]);
+  else if(pu>bu+0.08) items.push(['bad',`<b>Paint is the constraint.</b> Paint is ${Math.round(pu*100)}% booked over the next ${W} work days while body is ${Math.round(bu*100)}% booked, leaving about ${Math.round(bIdle)} body hours idle. Cars are stacking up waiting for the booth; consider extra booth time or having body techs handle more prep and masking.`]);
+  else items.push(['good',`<b>Body and paint are balanced</b> over the next ${W} work days (body ${Math.round(bu*100)}%, paint ${Math.round(pu*100)}% booked).`]);
+
+  // Pile-ups by drop-off date
+  const groups={};
+  state.jobs.forEach(j=>{ if(j.status!=='Not arrived'||!j.drop) return; (groups[j.drop]=groups[j.drop]||[]).push(j); });
+  Object.keys(groups).sort().forEach(d=>{
+    const g=groups[d]; if(g.length<4) return;
+    const sitting=g.filter(j=>{const r=s.res.get(j.id); if(!r||!r.stages) return false; const f=Math.min(...Object.values(r.stages).map(x=>x.first)); return isFinite(f)&&f-r.start>=2;});
+    if(sitting.length) items.push(['warn',`<b>${g.length} cars drop off ${fmt(parseIso(d))}</b>, but ${sitting.length} of them won't be touched for 2 or more work days (${sitting.map(j=>esc(j.ro)).join(', ')}). Stagger those drop-offs using the planner below so they arrive when a tech is free.`]);
+  });
+
+  // Paint open time
+  const open=[]; for(let i=0;i<Math.min(10,s.cal.length);i++){const d=deptDay(s,i); const free=d.pCap-d.pBook; if(free>=3) open.push(`${fmt(s.cal[i])} (${r1(free)} h)`);}
+  if(open.length) items.push(['',`<b>Open paint time:</b> ${open.slice(0,5).join(', ')}. Good days to book light refinish-heavy jobs like bumper covers and blends.`]);
+  const bopen=[]; for(let i=0;i<Math.min(10,s.cal.length);i++){const d=deptDay(s,i); const free=d.bCap-d.bBook; if(free>=3) bopen.push(`${fmt(s.cal[i])} (${r1(free)} h)`);}
+  if(bopen.length) items.push(['',`<b>Open body time:</b> ${bopen.slice(0,5).join(', ')}.`]);
+
+  // Late jobs
+  const late=state.jobs.filter(j=>jobFlag(s,j).late);
+  if(late.length) items.push(['bad',`<b>${late.length} job${late.length>1?'s':''} will miss target:</b> ${late.map(j=>`${esc(j.ro)} ${esc(j.vehicle)} (${jobFlag(s,j).text.toLowerCase()})`).join('; ')}. Move them up in the queue or update the customer and carrier now.`]);
+  const priLate=late.filter(j=>isPri(j.insurer));
+  if(priLate.length) items.unshift(['bad',`<b>${priLate.length} priority-carrier job${priLate.length>1?'s':''} will miss target</b> (${priLate.map(j=>esc(j.ro)).join(', ')}) even after moving to the front. Moving it up won't help; only overtime or more hours from its assigned techs can pull ${priLate.length>1?'them':'it'} in.`]);
+  const holds=state.jobs.filter(j=>j.status==='Hold');
+  if(holds.length) items.push(['warn',`<b>${holds.length} RO${holds.length>1?'s are':' is'} left off the schedule</b> because there's no current drop-off date: ${holds.map(j=>`${esc(j.ro)} ${esc(j.vehicle.split(' ').slice(0,3).join(' '))}`).join('; ')}. Give them a date and change the status to put them back on the board.`]);
+  const missing=state.jobs.filter(j=>{const r=s.res.get(j.id);return r&&r.missing&&r.missing.length;});
+  if(missing.length) items.push(['bad',`${missing.length} job(s) need a stage no one on the crew is set up to do. Check the roles in Crew &amp; capacity.`]);
+  $('#insightList').innerHTML=items.map(([c,h])=>`<li class="${c}">${h}</li>`).join('');
+}
+
+function renderChart(){
+  const s=SCH, H=Math.min(state.settings.horizon,s.cal.length), el=$('#chart');
+  if(!H){el.innerHTML='<p class="note">No working days to show.</p>';return;}
+  const W=980,Ht=250,pl=44,pr=8,pt=12,pb=40;
+  const data=[]; for(let i=0;i<H;i++) data.push(deptDay(s,i));
+  const max=Math.max(8,...data.map(x=>Math.max(x.bCap,x.pCap,x.bBook,x.pBook)));
+  const step=max<=16?4:max<=32?8:12; const top=Math.ceil(max/step)*step;
+  const y=v=>pt+(Ht-pt-pb)*(1-v/top), gw=(W-pl-pr)/H, bw=Math.min(20,gw*0.3);
+  let g='';
+  for(let v=0;v<=top;v+=step){g+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${v} h</text>`;}
+  data.forEach((d,i)=>{
+    const cx=pl+i*gw+gw/2, day=s.cal[i];
+    if(day.getDay()===1&&i>0) g+=`<line x1="${pl+i*gw}" x2="${pl+i*gw}" y1="${pt}" y2="${Ht-pb}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3"/>`;
+    const bx=cx-bw-1, px=cx+1;
+    g+=`<rect x="${bx}" y="${y(d.bBook)}" width="${bw}" height="${y(0)-y(d.bBook)}" fill="var(--body)" rx="1.5"><title>${fmt(day)} body: ${r1(d.bBook)} of ${r1(d.bCap)} h booked</title></rect>`;
+    g+=`<rect x="${px}" y="${y(d.pBook)}" width="${bw}" height="${y(0)-y(d.pBook)}" fill="var(--paint)" rx="1.5"><title>${fmt(day)} paint: ${r1(d.pBook)} of ${r1(d.pCap)} h booked</title></rect>`;
+    if(d.bCap>0) g+=`<rect x="${bx-1}" y="${y(d.bCap)}" width="${bw+2}" height="${y(0)-y(d.bCap)}" fill="none" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 2"/>`;
+    if(d.pCap>0) g+=`<rect x="${px-1}" y="${y(d.pCap)}" width="${bw+2}" height="${y(0)-y(d.pCap)}" fill="none" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 2"/>`;
+    g+=`<text x="${cx}" y="${Ht-pb+15}" text-anchor="middle" font-size="11" fill="var(--ink)">${DOW[day.getDay()]}</text><text x="${cx}" y="${Ht-pb+29}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${day.getMonth()+1}/${day.getDate()}</text>`;
+  });
+  el.innerHTML=`<div class="scroll"><svg viewBox="0 0 ${W} ${Ht}" style="min-width:640px" role="img" aria-label="Booked body and paint hours versus available hours per day">${g}</svg></div>`;
+}
+
+function ownerShort(j){
+  const o=String(j.owner||'').trim(); if(!o) return 'RO '+j.ro;
+  const last=(o.includes(',')?o.split(',')[0]:o.split(/\s+/).pop()).trim();
+  return last.toLowerCase().replace(/(^|[\s'-])([a-z])/g,(m,p,c)=>p+c.toUpperCase());
+}
+function renderBoard(){
+  const s=SCH, H=Math.min(state.settings.horizon,s.cal.length), tb=$('#board');
+  if(!H){tb.innerHTML='<tr><td class="note">Add techs to see the board.</td></tr>';return;}
+  let h='<thead><tr><th class="techcol">Tech</th>';
+  for(let i=0;i<H;i++){const d=s.cal[i]; h+=`<th class="${d.getDay()===1&&i>0?'mon':''}">${DOW[d.getDay()]} ${d.getMonth()+1}/${d.getDate()}</th>`;}
+  h+='</tr></thead><tbody>';
+  const byCell={}; s.segs.forEach(x=>{const k=x.ti+'_'+x.d; (byCell[k]=byCell[k]||[]).push(x);});
+  state.crew.forEach((t,ti)=>{
+    h+=`<tr><td><div class="techname">${esc(t.name)}</div><div class="techmeta">${t.role==='Both'?'Body + paint':t.role} · ${t.hours} h/day</div></td>`;
+    for(let i=0;i<H;i++){
+      const c=s.cap[ti][i], d=s.cal[i], mon=d.getDay()===1&&i>0?'mon':'';
+      if(!c){h+=`<td class="${mon}"><span class="off">Off</span></td>`;continue;}
+      const used=c-s.rem[ti][i], pct=Math.min(100,Math.round(used/c*100));
+      const col=pct>=95?'var(--bad)':pct>=60?'var(--steel)':'var(--good)';
+      h+=`<td class="${mon}"><div class="capbar" title="${r1(used)} of ${r1(c)} h booked"><span style="width:${pct}%;background:${col}"></span></div>`;
+      (byCell[ti+'_'+i]||[]).forEach(x=>{
+        const cls=x.st+(selectedJob?(x.job.id===selectedJob?' sel':' dim'):'');
+        h+=`<span class="chip ${cls}" data-job="${x.job.id}" title="${esc(ownerShort(x.job))} · RO ${esc(x.job.ro)} · ${esc(x.job.vehicle)} · ${STAGE_LABEL[x.st]} ${r1(x.a)} h"><span class="cn">${esc(ownerShort(x.job))}</span><span class="ch">${r1(x.a)}h</span></span>`;
+      });
+      h+='</td>';
+    }
+    h+='</tr>';
+  });
+  tb.innerHTML=h+'</tbody>';
+}
+
+function whenCell(st){
+  if(!st) return '<span class="note">—</span>';
+  const a=SCH.cal[st.first], b=SCH.cal[st.end];
+  return `<span class="when"><b>${fmt(a)}</b>${st.end>st.first?' → '+fmt(b):''}<br><span class="note">${esc(state.crew[st.ti].name)}</span></span>`;
+}
+function techSel(j,f,kind){
+  const cur=cleanTech(j[f]), ci=findTech(state.crew,cur);
+  const opts=state.crew.map((t,i)=>`<option value="${esc(t.name)}" ${ci===i?'selected':''}>${esc(t.name)}</option>`).join('');
+  const orphan=cur&&ci<0?`<option value="${esc(cur)}" selected>${esc(cur)} (not on crew)</option>`:'';
+  return `<select id="${f}_${j.id}" data-f="${f}" aria-label="${kind} technician"><option value="">Auto</option>${orphan}${opts}</select>`;
+}
+function renderJobs(){
+  const tb=$('#jobs');
+  let h=`<thead><tr><th>Order</th><th>RO #</th><th>Vehicle</th><th>Owner</th><th>Insurance</th><th>Status</th><th>Drop-off</th><th>Parts ready</th><th>Target</th><th class="num">Body</th><th class="num">Frame</th><th class="num">Mech</th><th class="num">Refinish</th><th>Body tech</th><th>Painter</th><th>Body repair</th><th>Paint</th><th>Reassembly</th><th>Est. complete</th><th>Customer promise</th><th>vs. target</th><th></th></tr></thead><tbody>`;
+  state.jobs.forEach((j,i)=>{
+    const r=SCH.res.get(j.id)||{}, f=jobFlag(SCH,j);
+    const ready=r.hold||r.overflow||!SCH.cal.length?'—':fmt(SCH.cal[r.done]);
+    h+=`<tr data-id="${j.id}" class="${selectedJob===j.id?'sel':''}">
+      <td style="white-space:nowrap"><button class="icon small" data-act="up" aria-label="Move ${esc(j.ro)} up" ${i===0?'disabled':''}>▲</button> <button class="icon small" data-act="down" aria-label="Move ${esc(j.ro)} down" ${i===state.jobs.length-1?'disabled':''}>▼</button></td>
+      <td><input type="text" class="ro" id="ro_${j.id}" data-f="ro" value="${esc(j.ro)}" aria-label="RO number"></td>
+      <td><input type="text" id="veh_${j.id}" data-f="vehicle" value="${esc(j.vehicle)}" style="min-width:170px" aria-label="Vehicle"></td>
+      <td><input type="text" id="own_${j.id}" data-f="owner" value="${esc(j.owner)}" aria-label="Owner"></td>
+      <td style="white-space:nowrap">${isPri(j.insurer)?'<span title="Priority carrier" style="color:var(--warn)">★</span> ':''}<input type="text" id="ins_${j.id}" data-f="insurer" value="${esc(j.insurer)}" aria-label="Insurance"></td>
+      <td><select id="st_${j.id}" data-f="status" aria-label="Status">${STATUSES.map(s=>`<option ${s===j.status?'selected':''}>${s}</option>`).join('')}</select></td>
+      <td><input type="date" id="dr_${j.id}" data-f="drop" value="${esc(j.drop)}" aria-label="Drop-off date"></td>
+      <td><input type="date" id="pa_${j.id}" data-f="parts" value="${esc(j.parts)}" aria-label="Parts ready date"></td>
+      <td><input type="date" id="tg_${j.id}" data-f="target" value="${esc(j.target)}" aria-label="Target date"></td>
+      ${['body','frame','mech','paint'].map(k=>`<td class="num"><input type="number" id="${k}_${j.id}" step="0.1" min="0" data-f="${k}" value="${+j[k]||0}" aria-label="${k} hours"></td>`).join('')}
+      <td>${techSel(j,'bodyTech','Body')}</td>
+      <td>${techSel(j,'paintTech','Paint')}</td>
+      <td>${whenCell(r.stages&&r.stages.repair)}</td>
+      <td>${whenCell(r.stages&&r.stages.paint)}</td>
+      <td>${whenCell(r.stages&&r.stages.reass)}</td>
+      <td class="when">${ready}</td>
+      <td class="when"><b>${r.hold||r.overflow||!SCH.cal.length?'—':fmt(SCH.cal[promiseIdx(SCH,r)])}</b></td>
+      <td><span class="pill ${f.cls}">${f.text}</span></td>
+      <td><button class="icon small" data-act="del" aria-label="Remove ${esc(j.ro)}">✕</button></td></tr>`;
+  });
+  if(!state.jobs.length) h+='<tr><td colspan="22" class="note">No jobs yet. Import from CCC ONE or add a job.</td></tr>';
+  tb.innerHTML=h+'</tbody>';
+}
+
+function renderPlanner(){
+  const b=+$('#pBody').value||0, p=+$('#pPaint').value||0, el=$('#plannerOut');
+  if(!SCH.cal.length){el.innerHTML='';return;}
+  const ins=$('#pIns').value, rows=planDrop(SCH,b,p,10,ins), rec=rows.find(o=>o.rec);
+  let h='';
+  if(rec) h+=`<p style="margin:0 0 8px"><span class="pill good">Recommended</span> Drop off <b>${fmt(SCH.cal[rec.k])}</b>, ready <b>${fmt(SCH.cal[rec.done])}</b>, ${rec.lot} work day${rec.lot>1?'s':''} keys to keys. Dropping earlier won't get it out sooner; it just sits.${isPri(ins)?' As a priority-carrier job it goes ahead of non-priority jobs that haven\'t started, which may push those back.':''}</p>`;
+  h+='<div class="scroll"><table><thead><tr><th>If dropped</th><th>First work</th><th class="num">Days sitting</th><th>Ready</th><th class="num">Keys to keys</th></tr></thead><tbody>';
+  rows.forEach(o=>{
+    if(o.bad){h+=`<tr><td>${fmt(SCH.cal[o.k])}</td><td colspan="4" class="note">Can't schedule; check crew roles</td></tr>`;return;}
+    h+=`<tr class="${o.rec?'rec':''}"><td>${fmt(SCH.cal[o.k])}</td><td>${fmt(SCH.cal[o.first])}</td><td class="num">${o.wait}</td><td>${fmt(SCH.cal[o.done])}</td><td class="num">${o.lot}</td></tr>`;
+  });
+  el.innerHTML=h+'</tbody></table></div>';
+}
+
+function renderCrew(){
+  const tb=$('#crew'), D=['S','M','T','W','T','F','S'];
+  let h='<thead><tr><th>Name</th><th>Does</th><th class="num">Hrs/day</th><th class="num">Eff. %</th><th>Days</th><th></th></tr></thead><tbody>';
+  state.crew.forEach(t=>{
+    h+=`<tr data-tid="${t.id}"><td><input type="text" id="tn_${t.id}" data-tf="name" value="${esc(t.name)}" aria-label="Tech name"></td>
+      <td><select id="tr_${t.id}" data-tf="role" aria-label="Role">${[['Body','Body'],['Paint','Paint'],['Both','Body + paint']].map(([v,l])=>`<option value="${v}" ${t.role===v?'selected':''}>${l}</option>`).join('')}</select></td>
+      <td class="num"><input type="number" id="th_${t.id}" data-tf="hours" min="0" max="14" step="0.5" value="${t.hours}" aria-label="Hours per day"></td>
+      <td class="num"><input type="number" id="te_${t.id}" data-tf="eff" min="30" max="250" step="5" value="${t.eff}" aria-label="Efficiency percent"></td>
+      <td><div class="days">${[1,2,3,4,5,6].map(d=>`<label class="${t.days.includes(d)?'on':''}" title="${DOW[d]}"><input type="checkbox" data-day="${d}" ${t.days.includes(d)?'checked':''}>${D[d]}</label>`).join('')}</div></td>
+      <td><button class="icon small" data-tact="del" aria-label="Remove ${esc(t.name)}">✕</button></td></tr>`;
+  });
+  tb.innerHTML=h+'</tbody>';
+}
+
+function summarize(crew){
+  const s=schedule(crew,state.jobs,state.settings); if(!s.cal.length) return null;
+  const active=state.jobs.filter(j=>j.status!=='Hold');
+  let last=-1, late=0; active.forEach(j=>{const r=s.res.get(j.id); if(r&&!r.overflow){last=Math.max(last,r.done);} if(jobFlag(s,j).late) late++;});
+  const t=deptTotals(s,state.settings.horizon);
+  const cap=crew.reduce((a,x)=>a+x.hours*x.days.length,0);
+  return {last:last<0?'—':fmt(s.cal[last]),late,bu:t.bCap?Math.round(t.bBook/t.bCap*100):0,pu:t.pCap?Math.round(t.pBook/t.pCap*100):0,cap};
+}
+function renderCompare(){
+  const rows=[['Your crew as set above',state.crew],['Current: 2 body, 1 FT + 1 PT paint',CREW_CURRENT()],['Proposed: FT body, PT body/paint, PT paint',CREW_PROPOSED()]];
+  let h='<thead><tr><th>Crew</th><th class="num">Paid hrs/wk</th><th>Last car out</th><th class="num">Late</th><th class="num">Body booked</th><th class="num">Paint booked</th></tr></thead><tbody>';
+  rows.forEach(([n,c])=>{const s=summarize(c); h+=s?`<tr><td>${n}</td><td class="num">${s.cap}</td><td>${s.last}</td><td class="num">${s.late}</td><td class="num">${s.bu}%</td><td class="num">${s.pu}%</td></tr>`:`<tr><td>${n}</td><td colspan="5" class="note">No capacity</td></tr>`;});
+  $('#compare').innerHTML=h+'</tbody>';
+}
+
+/* ---------- events ---------- */
+$('#horizonSel').addEventListener('change',e=>{state.settings.horizon=+e.target.value; render();});
+$('#setFM').addEventListener('change',e=>{state.settings.fm=e.target.checked; render();});
+$('#setHandoff').addEventListener('change',e=>{state.settings.handoff=e.target.checked; render();});
+$('#setPri').addEventListener('change',e=>{state.settings.priority=e.target.value; sortQueue(); render(); toast('Queue re-sorted for priority carriers');});
+$('#setClosed').addEventListener('change',e=>{state.settings.closed=e.target.value; render();});
+$('#setCap').addEventListener('change',e=>{state.settings.carCap=Math.max(0,+e.target.value||0); render();});
+$('#setBuf').addEventListener('change',e=>{state.settings.buffer=Math.max(0,Math.round(+e.target.value||0)); render();});
+$('#setReass').addEventListener('change',e=>{state.settings.reassPct=Math.max(0,Math.min(60,+e.target.value||0)); render();});
+['#pBody','#pPaint','#pIns'].forEach(s=>$(s).addEventListener('input',renderPlanner));
+document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const [x,y]=b.dataset.preset.split(','); $('#pBody').value=x; $('#pPaint').value=y; renderPlanner();}));
+
+$('#jobs').addEventListener('change',e=>{
+  const tr=e.target.closest('tr[data-id]'); if(!tr) return; const j=state.jobs.find(x=>x.id===tr.dataset.id); const f=e.target.dataset.f; if(!j||!f) return;
+  j[f]=['body','frame','mech','paint'].includes(f)?Math.max(0,+e.target.value||0):e.target.value; render();
+});
+$('#jobs').addEventListener('click',e=>{
+  const tr=e.target.closest('tr[data-id]'); if(!tr) return; const i=state.jobs.findIndex(x=>x.id===tr.dataset.id);
+  const act=e.target.dataset.act;
+  if(act==='up'&&i>0){[state.jobs[i-1],state.jobs[i]]=[state.jobs[i],state.jobs[i-1]]; render();}
+  else if(act==='down'&&i<state.jobs.length-1){[state.jobs[i+1],state.jobs[i]]=[state.jobs[i],state.jobs[i+1]]; render();}
+  else if(act==='del'){state.jobs.splice(i,1); render();}
+  else if(!e.target.closest('input,select,button')){selectedJob=selectedJob===tr.dataset.id?null:tr.dataset.id; renderBoard(); renderJobs();}
+});
+$('#board').addEventListener('click',e=>{const c=e.target.closest('.chip'); if(!c) return; selectedJob=selectedJob===c.dataset.job?null:c.dataset.job; renderBoard(); renderJobs();
+  if(selectedJob){const row=document.querySelector(`#jobs tr[data-id="${selectedJob}"]`); if(row) row.scrollIntoView({block:'nearest',behavior:'smooth'});}});
+$('#btnAddJob').addEventListener('click',()=>{state.jobs.push({id:uid(),ro:'',vehicle:'',owner:'',insurer:'',status:'Not arrived',drop:iso(TODAY),parts:'',target:'',body:0,frame:0,mech:0,paint:0}); render(); const last=state.jobs[state.jobs.length-1]; const inp=document.getElementById('ro_'+last.id); if(inp) inp.focus();});
+$('#btnAutoSort').addEventListener('click',()=>{sortQueue(); render(); toast('Queue sorted: in-shop jobs, then priority carriers, then everyone else');});
+
+$('#crew').addEventListener('change',e=>{
+  const tr=e.target.closest('tr[data-tid]'); if(!tr) return; const t=state.crew.find(x=>x.id===tr.dataset.tid); if(!t) return;
+  if(e.target.dataset.day){const d=+e.target.dataset.day; t.days=e.target.checked?[...new Set([...t.days,d])]:t.days.filter(x=>x!==d);}
+  else if(e.target.dataset.tf){const f=e.target.dataset.tf; t[f]=(f==='hours'||f==='eff')?Math.max(0,+e.target.value||0):e.target.value;}
+  render();
+});
+$('#crew').addEventListener('click',e=>{if(e.target.dataset.tact==='del'){const tr=e.target.closest('tr[data-tid]'); state.crew=state.crew.filter(x=>x.id!==tr.dataset.tid); render();}});
+$('#btnAddTech').addEventListener('click',()=>{state.crew.push({id:uid(),name:'New tech',role:'Body',hours:8,eff:100,days:[1,2,3,4,5]}); render();});
+$('#presetCurrent').addEventListener('click',()=>{state.crew=CREW_CURRENT(); render(); toast('Crew set to current lineup');});
+$('#presetProposed').addEventListener('click',()=>{state.crew=CREW_PROPOSED(); render(); toast('Crew set to proposed restructure');});
+$('#btnSample').addEventListener('click',()=>{state.jobs=sampleJobs(); sortQueue(); state.isSample=true; selectedJob=null; render(); toast('Sample jobs loaded');});
+
+let toastT; function toast(m){const t=$('#toast'); t.textContent=m; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,2200);}
+
+$('#btnCopy').addEventListener('click',()=>{
+  const head=['Order','RO','Vehicle','Owner','Insurance','Status','Drop-off','Target','Body hrs','Refinish hrs','Body tech','Body start','Body done','Painter','Paint start','Paint done','Est. complete','Customer promise','vs target'];
+  const lines=[head.join('\t')];
+  state.jobs.forEach((j,i)=>{const r=SCH.res.get(j.id)||{}, st=r.stages||{}, f=jobFlag(SCH,j), c=SCH.cal;
+    const t=x=>x?state.crew[x.ti].name:'', a=x=>x?iso(c[x.first]):'', b=x=>x?iso(c[x.end]):'';
+    lines.push([i+1,j.ro,j.vehicle,j.owner,j.insurer,j.status,j.drop,j.target,j.body,j.paint,t(st.repair),a(st.repair),b(st.repair),t(st.paint),a(st.paint),b(st.paint),(r.hold||r.overflow||!c.length)?'':iso(c[r.done]),(r.hold||r.overflow||!c.length)?'':iso(c[promiseIdx(SCH,r)]),f.text].join('\t'));});
+  const txt=lines.join('\n');
+  const fallback=()=>{$('#copyText').value=txt; $('#copyOverlay').hidden=false; $('#copyText').select();};
+  try{navigator.clipboard.writeText(txt).then(()=>toast('Schedule copied. Paste it into Excel.'),fallback);}catch(err){fallback();}
+});
+$('#copyClose').addEventListener('click',()=>$('#copyOverlay').hidden=true);
+
+/* ---------- import ---------- */
+const FIELDS=[
+  {k:'ro',label:'RO / workfile #',req:true,re:/^\s*(r\.?o\.?(\s|#|$)|ro\s*(#|no|num)|repair\s*order|work\s*file|workfile|file\s*(#|no)|job\s*(#|no)?$)/i},
+  {k:'vehicle',label:'Vehicle',re:/^\s*vehicle\s*$|vehicle\s*(desc|info|name)|y\/?m\/?m|year.?make|description/i},
+  {k:'owner',label:'Owner / customer',re:/owner|customer|insured|client|^\s*name/i},
+  {k:'insurer',label:'Insurance / payer',re:/insur|carrier|payer|ins\.?\s*co|^\s*company/i},
+  {k:'status',label:'Status / stage',re:/status|stage|dept|department|phase/i},
+  {k:'drop',label:'Drop-off / scheduled in',re:/drop|arriv|sched\w*\s*in|date\s*in|in\s*date|vehicle\s*in|check.?in|appoint|appt|start/i},
+  {k:'parts',label:'Parts ready / ETA',re:/parts/i},
+  {k:'target',label:'Target delivery',re:/target|promis|deliver|due|sched\w*\s*out|out\s*date/i},
+  {k:'target2',label:'Backup target (used when target is blank)',re:/complet/i},
+  {k:'body',label:'Body hours',req:true,re:/^\s*body|body\s*(hrs|hours|labor|lab)|sheet\s*metal/i},
+  {k:'frame',label:'Frame / structural hours',re:/frame|structur/i},
+  {k:'mech',label:'Mechanical hours',re:/mech/i},
+  {k:'paint',label:'Refinish / paint hours',req:true,re:/refin|paint|\blar\b/i},
+  {k:'bodyTech',label:'Body technician',re:/body\s*tech/i},
+  {k:'paintTech',label:'Paint technician',re:/paint\s*tech|painter/i},
+  {k:'total',label:'Total RO hours (split below)',re:/ro\s*h(ou)?rs|total\s*(labor\s*)?h(ou)?rs|labor\s*hours|^\s*hours\s*$/i}
+];
+let IMP=null;
+function parseDelimited(text){
+  text=text.replace(/^﻿/,'');
+  const first=text.split(/\r?\n/).slice(0,5).join('\n');
+  const cnt=ch=>first.split(ch).length;
+  const delim=cnt('\t')>=cnt(',')&&cnt('\t')>1?'\t':(cnt(';')>cnt(',')?';':',');
+  const rows=[]; let row=[],f='',q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){f+='"';i++;} else q=false; } else f+=c; }
+    else if(c==='"'&&f==='') q=true;
+    else if(c===delim){row.push(f);f='';}
+    else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; row.push(f); rows.push(row); row=[]; f=''; }
+    else f+=c;
+  }
+  if(f!==''||row.length){row.push(f); rows.push(row);}
+  return rows.filter(r=>r.some(c=>String(c).trim()!==''));
+}
+function autoMap(headers){
+  const map={}, used=new Set();
+  const hasHrs=h=>/hr|hour|lab/i.test(h);
+  FIELDS.forEach(F=>{
+    let best=-1,score=-1;
+    headers.forEach((h,i)=>{ if(used.has(i)||!F.re.test(h)) return; if(['body','paint','frame','mech','total'].includes(F.k)&&/tech|painter|name|assign|%/i.test(h)) return; let s=1; if(['body','frame','mech','paint'].includes(F.k)&&hasHrs(h)) s+=2; if(['body','frame','mech','paint'].includes(F.k)&&/\$|amount|amt|cost|price|total\s*\$/i.test(h)) s-=3; if(s>score){score=s;best=i;} });
+    if(best>=0&&score>-1){map[F.k]=String(best); used.add(best);}
+  });
+  if(map.vehicle===undefined){
+    const yi=headers.findIndex(h=>/^\s*(year|yr)\s*$/i.test(h)), mi=headers.findIndex(h=>/^\s*make\s*$/i.test(h)), mo=headers.findIndex(h=>/^\s*model\s*$/i.test(h));
+    if(mi>=0) map.vehicle='ymm:'+[yi,mi,mo].join(',');
+  }
+  return map;
+}
+function pickHeader(rows){
+  let best=0,bs=-1;
+  rows.slice(0,12).forEach((r,i)=>{const s=r.reduce((a,c)=>a+(FIELDS.some(F=>F.re.test(String(c)))?1:0),0); if(s>bs){bs=s;best=i;}});
+  return best;
+}
+function loadRows(rows){
+  if(!rows.length){$('#impMsg').innerHTML='<span class="err">No rows found. Include the header row.</span>'; return;}
+  const hi=pickHeader(rows), headers=rows[hi].map(h=>String(h).trim()), data=rows.slice(hi+1).filter(r=>r.some(c=>String(c).trim()));
+  const sig=headers.join('|').toLowerCase(), saved=(state.savedMaps||{})[sig];
+  IMP={headers,data,sig,map:saved?{...saved}:autoMap(headers)};
+  $('#impMsg').textContent=`Found ${data.length} rows and ${headers.length} columns.`+(saved?' Using the column matches you saved last time.':'');
+  renderMap();
+}
+function renderMap(){
+  const {headers,data,map}=IMP;
+  const ymm=map.vehicle&&map.vehicle.startsWith('ymm:')?map.vehicle:null;
+  let h='<h3 style="font-size:17px;margin-top:12px">Match columns</h3><div class="mapgrid">';
+  FIELDS.forEach(F=>{
+    h+=`<label for="map_${F.k}">${F.label}${F.req?' *':''}<select id="map_${F.k}" data-k="${F.k}"><option value="">(not in file)</option>${ymm&&F.k==='vehicle'?`<option value="${ymm}" selected>Year + Make + Model columns</option>`:''}${headers.map((x,i)=>`<option value="${i}" ${map[F.k]===String(i)?'selected':''}>${esc(x||'Column '+(i+1))}</option>`).join('')}</select></label>`;
+  });
+  h+='</div>';
+  const jobs=buildImported();
+  h+=`<p class="note">Preview of the first ${Math.min(5,jobs.length)} of ${jobs.length} jobs:</p><div class="scroll"><table><thead><tr><th>RO</th><th>Vehicle</th><th>Status</th><th>Drop-off</th><th>Target</th><th class="num">Body</th><th class="num">Refinish</th></tr></thead><tbody>`;
+  jobs.slice(0,5).forEach(j=>{h+=`<tr><td>${esc(j.ro)}</td><td>${esc(j.vehicle)}</td><td>${j.status}</td><td>${j.drop}</td><td>${j.target||'—'}</td><td class="num">${j.body}</td><td class="num">${j.paint}</td></tr>`;});
+  h+='</tbody></table></div>';
+  const split=!map.body&&!map.paint&&map.total;
+  const missing=FIELDS.filter(F=>F.req&&!map[F.k]&&!(split&&(F.k==='body'||F.k==='paint'))).map(F=>F.label);
+  if(split) h+=`<p class="note" style="margin-top:10px">This export has total RO hours but no separate body and refinish hours. Refinish share of RO hours: <input type="number" id="impShare" min="10" max="80" step="5" value="${state.settings.refinShare||40}" aria-label="Refinish share percent">%. The rest is scheduled as body work. Add Body and Refinish hour columns to the CCC ONE report for exact numbers.</p>`;
+  h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center">
+    <button class="primary" type="button" id="impRefresh" ${missing.length?'disabled':''}>Daily refresh: update the board from these ${jobs.length} jobs</button>
+    <button type="button" id="impReplace" ${missing.length?'disabled':''}>Start over with these jobs</button>
+    <button type="button" id="impAppend" ${missing.length?'disabled':''}>Add without removing anything</button>
+    ${missing.length?`<span class="err">Pick a column for: ${missing.join(', ')}</span>`:''}</div>
+  <p class="note" style="margin-top:8px"><b>Daily refresh</b> updates hours, dates and status for ROs already on the board and keeps their place in line. It adds new ROs in priority order and drops ROs that are no longer in the export (delivered or closed). If your export has no status column, the status you set in the planner is kept.</p>`;
+  $('#impMap').innerHTML=h;
+}
+function parseDateAny(v){
+  v=String(v==null?'':v).trim(); if(!v) return ''; let m;
+  if((m=/^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(v))) return iso(new Date(+m[1],m[2]-1,+m[3]));
+  if((m=/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/.exec(v))){let y=+m[3]; if(y<100) y+=2000; return iso(new Date(y,m[1]-1,+m[2]));}
+  // CCC ONE's Excel export shows dates as "11/30" with no year. Pick the year that puts the date closest to today.
+  if((m=/^(\d{1,2})[\/\-](\d{1,2})(?![\/\-\d])/.exec(v))){const t=TODAY.getFullYear(); let best=null;
+    for(const y of [t-1,t,t+1]){const d=new Date(y,m[1]-1,+m[2]); if(!best||Math.abs(d-TODAY)<Math.abs(best-TODAY)) best=d;} return iso(best);}
+  if(/^\d{5}(\.\d+)?$/.test(v)){const d=new Date(1899,11,30); d.setDate(d.getDate()+Math.floor(+v)); return iso(d);}
+  const d=new Date(v); return isNaN(d)?'':iso(new Date(d.getFullYear(),d.getMonth(),d.getDate()));
+}
+const num=v=>{const n=parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:Math.max(0,n);};
+function mapStatus(v,drop){
+  const s=String(v||'').toLowerCase();
+  if(!s) return drop&&drop>iso(TODAY)?'Not arrived':'Ready';
+  if(/hold|total\s*loss|\btl\b|cancel|no\s*plan/.test(s)) return 'Hold';
+  if(/reassem|assembl|detail|clean|qc|quality|deliver/.test(s)) return 'Reassembly';
+  if(/paint|refin|booth|prep|prime/.test(s)) return 'In paint';
+  if(/body|repair|frame|structur|disassem|tear/.test(s)) return 'In body';
+  if(/part|wait|supplement/.test(s)) return 'Waiting parts';
+  if(/sched|pre.?arr|not.?arr|appoint|estimate|pending|future/.test(s)) return 'Not arrived';
+  return 'Ready';
+}
+function buildImported(){
+  const {data,map}=IMP;
+  const get=(r,k)=>{const m=map[k]; if(!m) return ''; if(m.startsWith('ymm:')) return m.slice(4).split(',').map(Number).filter(i=>i>=0).map(i=>String(r[i]||'').trim()).join(' ').trim(); return String(r[+m]==null?'':r[+m]).trim();};
+  return data.filter(r=>!r.some(c=>/^\s*(grand\s*)?total/i.test(String(c)))).map(r=>{
+    const rawDrop=parseDateAny(get(r,'drop')), drop=rawDrop||iso(TODAY);
+    let status=mapStatus(get(r,'status'),drop), note='';
+    if(!rawDrop&&status!=='Hold'&&/plan|^\s*$/i.test(get(r,'status'))){status='Hold';}
+    if(status==='Not arrived'&&rawDrop&&rawDrop<iso(TODAY)){status='Hold'; note='Drop-off date passed';}
+    if(status==='Hold'&&!note) note=rawDrop?'On hold':'No drop-off date';
+    let body=num(get(r,'body')), paint=num(get(r,'paint'));
+    if(!map.body&&!map.paint&&map.total){const t=num(get(r,'total')), sh=(+state.settings.refinShare||40)/100; paint=r1(t*sh); body=r1(t-paint);}
+    return {id:uid(),ro:get(r,'ro'),vehicle:get(r,'vehicle'),owner:get(r,'owner'),insurer:get(r,'insurer'),status,note,bodyTech:cleanTech(get(r,'bodyTech')),paintTech:cleanTech(get(r,'paintTech')),drop,parts:parseDateAny(get(r,'parts')),target:parseDateAny(get(r,'target'))||parseDateAny(get(r,'target2')),body,frame:num(get(r,'frame')),mech:num(get(r,'mech')),paint};
+  }).filter(j=>(j.ro&&!/total/i.test(j.ro)&&!/total/i.test(j.vehicle||''))&&(j.ro||j.body||j.paint)&&!/^grand/i.test(String(j.ro)));
+}
+$('#btnImport').addEventListener('click',()=>{$('#importOverlay').hidden=false; $('#impText').focus();});
+$('#impClose').addEventListener('click',()=>$('#importOverlay').hidden=true);
+$('#impParse').addEventListener('click',()=>{const t=$('#impText').value; if(!t.trim()){$('#impMsg').innerHTML='<span class="err">Paste rows or choose a file first.</span>';return;} loadRows(parseDelimited(t));});
+$('#impFile').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return; const rd=new FileReader();
+  if(/\.xlsx?$/i.test(f.name)){
+    if(typeof XLSX==='undefined'){$('#impMsg').innerHTML='<span class="err">Excel reader didn\'t load. Save the file as CSV and try again.</span>';return;}
+    rd.onload=()=>{try{const wb=XLSX.read(rd.result,{type:'array'}); const ws=wb.Sheets[wb.SheetNames[0]]; loadRows(XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''}));}catch(err){$('#impMsg').innerHTML='<span class="err">Couldn\'t read that workbook. Save it as CSV and try again.</span>';}};
+    rd.readAsArrayBuffer(f);
+  } else { rd.onload=()=>loadRows(parseDelimited(String(rd.result))); rd.readAsText(f); }
+});
+$('#impMap').addEventListener('change',e=>{if(e.target.id==='impShare'){state.settings.refinShare=+e.target.value||40; save(); renderMap(); return;} const k=e.target.dataset.k; if(!k) return; IMP.map[k]=e.target.value; renderMap();});
+$('#impMap').addEventListener('click',e=>{
+  const id=e.target.id; if(!['impRefresh','impReplace','impAppend'].includes(id)) return;
+  const jobs=buildImported(); if(!jobs.length) return;
+  state.savedMaps=state.savedMaps||{}; state.savedMaps[IMP.sig]={...IMP.map};
+  let msg;
+  if(id==='impRefresh'&&!state.isSample){
+    const key=r=>String(r||'').trim().toLowerCase(), m=IMP.map, byRo=new Map(jobs.map(j=>[key(j.ro),j]));
+    let upd=0, add=0; const before=state.jobs.length;
+    const kept=state.jobs.filter(j=>byRo.has(key(j.ro)));
+    kept.forEach(j=>{const n=byRo.get(key(j.ro)); upd++;
+      ['vehicle','owner','insurer','drop','target'].forEach(f=>{if(m[f]&&n[f]) j[f]=n[f];});
+      ['bodyTech','paintTech'].forEach(f=>{if(m[f]&&n[f]) j[f]=n[f];});
+      ['body','frame','mech','paint'].forEach(f=>{if(m[f]) j[f]=n[f];});
+      if(m.parts&&n.parts) j.parts=n.parts; if(m.status){j.status=n.status; j.note=n.note||'';}
+      byRo.delete(key(j.ro));});
+    state.jobs=kept;
+    byRo.forEach(n=>{let at=state.jobs.findIndex(j=>jobRank(j)>jobRank(n)||(jobRank(j)===jobRank(n)&&cmpDates(j,n)>0)); if(at<0) at=state.jobs.length; state.jobs.splice(at,0,n); add++;});
+    msg=`Updated ${upd}, added ${add}, removed ${before-upd} no longer in CCC ONE`;
+  } else if(id==='impAppend'){ state.jobs=state.jobs.concat(jobs); sortQueue(); msg=`Added ${jobs.length} jobs`; }
+  else { state.jobs=jobs; sortQueue(); msg=`Loaded ${jobs.length} jobs from CCC ONE`; }
+  state.lastImport=new Date().toISOString();
+  const added=ensureCrew(state.jobs); if(added.length) msg+=` · Crew updated: ${added.join(', ')}`;
+  state.isSample=false; selectedJob=null; $('#importOverlay').hidden=true; render(); toast(msg);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#importOverlay').hidden=true;$('#copyOverlay').hidden=true;}});
+
+/* ---------- Shop Schedule (monitor view) ---------- */
+const MAKES={HOND:'Honda',CHEV:'Chevrolet',TOYO:'Toyota',VOLV:'Volvo',SUBA:'Subaru',JEEP:'Jeep',POLE:'Polestar',BENZ:'Mercedes-Benz',MERZ:'Mercedes-Benz',INFI:'Infiniti',HYUN:'Hyundai',CHRY:'Chrysler',FORD:'Ford',MINI:'MINI',BMW:'BMW',AUDI:'Audi',KIA:'Kia',SUNBEAM:'Sunbeam',NISS:'Nissan',DODG:'Dodge',RAM:'Ram',GMC:'GMC',CADI:'Cadillac',BUIC:'Buick',LEXU:'Lexus',ACUR:'Acura',MAZD:'Mazda',MITS:'Mitsubishi',VOLK:'Volkswagen',VW:'Volkswagen',LINC:'Lincoln',TESL:'Tesla',LAND:'Land Rover',LNDR:'Land Rover',JAGU:'Jaguar',PORS:'Porsche',GENE:'Genesis',RIVI:'Rivian',FIAT:'Fiat',ALFA:'Alfa Romeo',MASE:'Maserati',LUCI:'Lucid',SCIO:'Scion',PONT:'Pontiac',SATU:'Saturn',MERC:'Mercury',HUMM:'Hummer',SMAR:'smart'};
+function makeOf(v){const t=String(v||'').trim().split(/\s+/); const w=/^\d{4}$/.test(t[0])?t[1]:t[0]; if(!w) return '—'; const k=w.toUpperCase(); return MAKES[k]||MAKES[k.slice(0,4)]||w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();}
+function modelOf(v){const t=String(v||'').trim().split(/\s+/); const i=/^\d{4}$/.test(t[0])?2:1; return [t[0]&&/^\d{4}$/.test(t[0])?t[0]:'',...t.slice(i,i+2)].join(' ').trim();}
+function tvName(o){o=String(o||'').trim(); if(!o) return 'Customer'; let last,first; if(o.includes(',')){[last,first]=o.split(',').map(x=>x.trim());} else {const p=o.split(/\s+/); last=p.pop(); first=p.join(' ');}
+  const tc=x=>x.toLowerCase().replace(/(^|[\s'-])([a-z])/g,(m,p,c)=>p+c.toUpperCase()); return tc(last)+(first?', '+first.charAt(0).toUpperCase()+'.':'');}
+function nowStage(sch,r){
+  if(r.done<=0&&!(r.stages&&Object.values(r.stages).some(s=>s.end>0))) return {txt:'Finishing / ready',col:'#4ade80'};
+  const order=['repair','paint','reass'], cols={repair:'var(--body)',paint:'var(--paint)',reass:'var(--reass)'};
+  for(const st of order){const x=r.stages[st]; if(x&&x.first<=0&&x.end>=0) return {txt:STAGE_LABEL[st]+' · '+state.crew[x.ti].name,col:cols[st]};}
+  for(const st of order){const x=r.stages[st]; if(x&&x.first>0) return {txt:(r.start>0?'Arrives '+fmt(sch.cal[r.start])+' · ':'Waiting · next: ')+STAGE_LABEL[st].toLowerCase(),col:'#6b6b6b'};}
+  return {txt:'Finishing / ready',col:'#4ade80'};
+}
+let tvPage=0, tvTimer=null, tvIdle=null;
+function tvRowsData(){
+  const sch=schedule(state.crew,state.jobs,state.settings); const rows=[];
+  state.jobs.forEach(j=>{const r=sch.res.get(j.id); if(!r||r.hold||r.overflow||!sch.cal.length) return; const pi=promiseIdx(sch,r); rows.push({j,r,pi,date:sch.cal[pi],sch});});
+  rows.sort((a,b)=>a.pi-b.pi||a.r.done-b.r.done||String(a.j.owner).localeCompare(String(b.j.owner)));
+  return {rows,sch,holds:state.jobs.filter(j=>j.status==='Hold').length};
+}
+function renderTV(){
+  const now=new Date();
+  $('#tvClock').innerHTML=`<b>${now.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</b>${now.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}`;
+  const {rows,holds}=tvRowsData(), box=$('#tvRows');
+  if(!rows.length){box.innerHTML='<div class="tv-empty">No cars scheduled. Import from CCC ONE in the planner.</div>'; $('#tvPages').innerHTML=''; $('#tvFoot').textContent=''; return;}
+  const avail=box.clientHeight||window.innerHeight*0.7, per=Math.max(3,Math.floor(avail/(window.innerHeight*0.087)));
+  const pages=Math.ceil(rows.length/per); if(tvPage>=pages) tvPage=0;
+  const t0=iso(TODAY), t1=iso(addWorkdays(TODAY,1));
+  box.innerHTML=rows.slice(tvPage*per,tvPage*per+per).map(({j,r,date,sch})=>{
+    const d=iso(date), ns=nowStage(sch,r), ready=ns.txt.startsWith('Finishing');
+    const cls=d===t0?'today':d===t1?'soon':ready?'ready':'';
+    const tag=d===t0?'Due today':d===t1?'Due tomorrow':ready?'Work complete':'';
+    return `<div class="tv-row tv-grid ${cls}"><div class="tv-date">${DOW[date.getDay()]} ${date.getMonth()+1}/${date.getDate()}${tag?`<small>${tag}</small>`:''}</div>
+      <div class="tv-name">${esc(tvName(j.owner))}<small>RO ${esc(j.ro)} · ${esc(modelOf(j.vehicle))}</small></div>
+      <div class="tv-make">${esc(makeOf(j.vehicle))}</div>
+      <div class="tv-now"><span class="tv-dot" style="background:${ns.col}"></span><span>${esc(ns.txt)}</span></div></div>`;}).join('');
+  $('#tvPages').innerHTML=pages>1?Array.from({length:pages},(_,i)=>`<i class="${i===tvPage?'on':''}"></i>`).join(''):'';
+  const li=state.lastImport?new Date(state.lastImport):null;
+  $('#tvFoot').textContent=`${rows.length} cars scheduled${holds?` · ${holds} waiting on a drop-off date`:''}${li?` · CCC ONE data ${li.toLocaleDateString(undefined,{month:'numeric',day:'numeric'})} ${li.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`:''}`;
+}
+function showTV(on){
+  $('#tv').hidden=!on; document.body.style.overflow=on?'hidden':'';
+  clearInterval(tvTimer);
+  if(on){$('#tvSandbox').hidden=!!state.tvLive||ONLINE; tvPage=0; renderTV(); tvTimer=setInterval(()=>{tvPage++; renderTV();},12000); poke();}
+}
+function poke(){$('#tv').classList.remove('idle'); clearTimeout(tvIdle); tvIdle=setTimeout(()=>$('#tv').classList.add('idle'),4000);}
+function route(){showTV(location.hash==='#shop-schedule');}
+$('#btnTV').addEventListener('click',()=>{location.hash='shop-schedule';});
+$('#tvBack').addEventListener('click',()=>{try{history.replaceState(null,'',location.pathname+location.search);}catch(e){} location.hash=''; showTV(false); render();});
+$('#tvFull').addEventListener('click',()=>{try{const el=document.documentElement; (document.fullscreenElement?document.exitFullscreen():el.requestFullscreen()).catch(()=>toast('Full screen is blocked here. Use the browser or TV full-screen key.'));}catch(e){toast('Full screen is blocked here. Use the browser or TV full-screen key.');}});
+$('#tv').addEventListener('mousemove',poke);
+window.addEventListener('hashchange',route);
+window.addEventListener('resize',()=>{if(!$('#tv').hidden) renderTV();});
+window.addEventListener('storage',e=>{ if(e.key!==STORE_KEY||!e.newValue) return; try{const n=JSON.parse(e.newValue); if(n&&Array.isArray(n.jobs)){state=n; if($('#tv').hidden) render(); else renderTV();}}catch(err){} });
+setInterval(()=>{ if(!$('#tv').hidden){ /* keep the clock current */ const c=$('#tvClock'); if(c){const now=new Date(); c.innerHTML=`<b>${now.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</b>${now.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}`;} } },20000);
+
+if(state._needCrew){ensureCrew(state.jobs); delete state._needCrew;}
+render();
+route();
+if(ONLINE){
+  pullState(true);
+  setInterval(()=>pullState(false),60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden) pullState(false);});
+  const bootDay=new Date().toDateString();
+  setInterval(()=>{ if(!$('#tv').hidden&&new Date().toDateString()!==bootDay) location.reload(); },60000);
+}
+})();
+</script>
+</body>
+</html>
