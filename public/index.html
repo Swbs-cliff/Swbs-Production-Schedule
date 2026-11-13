@@ -1044,14 +1044,17 @@ function nowStage(sch,r){
 let tvPage=0, tvTimer=null, tvIdle=null;
 function tvRowsData(){
   const sch=schedule(state.crew,state.jobs,state.settings); const rows=[];
-  state.jobs.forEach(j=>{const r=sch.res.get(j.id); if(!r||r.hold||r.overflow||!sch.cal.length) return; const pi=promiseIdx(sch,r); rows.push({j,r,pi,date:sch.cal[pi],sch});});
+  // Cars due to arrive after today stay off the shop monitor until their drop-off day.
+  const future=j=>j.status==='Not arrived'&&j.drop&&j.drop>iso(TODAY);
+  let later=0;
+  state.jobs.forEach(j=>{const r=sch.res.get(j.id); if(!r||r.hold||r.overflow||!sch.cal.length) return; if(future(j)){later++; return;} const pi=promiseIdx(sch,r); rows.push({j,r,pi,date:sch.cal[pi],sch});});
   rows.sort((a,b)=>a.pi-b.pi||a.r.done-b.r.done||String(a.j.owner).localeCompare(String(b.j.owner)));
-  return {rows,sch,holds:state.jobs.filter(j=>j.status==='Hold').length};
+  return {rows,sch,later,holds:state.jobs.filter(j=>j.status==='Hold').length};
 }
 function renderTV(){
   const now=new Date();
   $('#tvClock').innerHTML=`<b>${now.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</b>${now.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}`;
-  const {rows,holds}=tvRowsData(), box=$('#tvRows');
+  const {rows,holds,later}=tvRowsData(), box=$('#tvRows');
   if(!rows.length){box.innerHTML='<div class="tv-empty">No cars scheduled. Import from CCC ONE in the planner.</div>'; $('#tvPages').innerHTML=''; $('#tvFoot').textContent=''; return;}
   const avail=box.clientHeight||window.innerHeight*0.7, per=Math.max(3,Math.floor(avail/(window.innerHeight*0.087)));
   const pages=Math.ceil(rows.length/per); if(tvPage>=pages) tvPage=0;
@@ -1066,7 +1069,7 @@ function renderTV(){
       <div class="tv-now"><span class="tv-dot" style="background:${ns.col}"></span><span>${esc(ns.txt)}</span></div></div>`;}).join('');
   $('#tvPages').innerHTML=pages>1?Array.from({length:pages},(_,i)=>`<i class="${i===tvPage?'on':''}"></i>`).join(''):'';
   const li=state.lastImport?new Date(state.lastImport):null;
-  $('#tvFoot').textContent=`${rows.length} cars scheduled${holds?` · ${holds} waiting on a drop-off date`:''}${li?` · CCC ONE data ${li.toLocaleDateString(undefined,{month:'numeric',day:'numeric'})} ${li.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`:''}`;
+  $('#tvFoot').textContent=`${rows.length} cars in the shop${later?` · ${later} arriving later`:''}${holds?` · ${holds} waiting on a drop-off date`:''}${li?` · CCC ONE data ${li.toLocaleDateString(undefined,{month:'numeric',day:'numeric'})} ${li.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`:''}`;
 }
 function showTV(on){
   $('#tv').hidden=!on; document.body.style.overflow=on?'hidden':'';
