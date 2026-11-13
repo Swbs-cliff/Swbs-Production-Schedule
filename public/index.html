@@ -162,7 +162,7 @@ tr.rec td{background:color-mix(in srgb,var(--good) 12%,var(--surface));font-weig
 .tv-title{font-family:var(--display);font-weight:400;font-size:clamp(30px,3.4vw,64px);letter-spacing:.02em;flex:1;color:#fff}
 .tv-clock{text-align:right;font-family:var(--head);text-transform:uppercase;letter-spacing:.08em;color:#cfcfcf;font-size:clamp(14px,1.3vw,24px);line-height:1.25}
 .tv-clock b{display:block;font-family:var(--display);font-weight:400;color:#fff;font-size:clamp(26px,2.6vw,48px);letter-spacing:.02em}
-.tv-grid{display:grid;grid-template-columns:minmax(11ch,1.1fr) 2fr 1.3fr 1.7fr;column-gap:2vw;align-items:center}
+.tv-grid{display:grid;grid-template-columns:minmax(11ch,1.1fr) 1.7fr 1.9fr 1.6fr;column-gap:2vw;align-items:center}
 .tv-cols{font-family:var(--head);text-transform:uppercase;letter-spacing:.14em;color:#8f8f8f;font-size:clamp(12px,1vw,18px);padding:1.4vh 1.2vw .8vh}
 #tvRows{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:.7vh}
 .tv-row{background:#1E1E1E;border-radius:4px;border-left:8px solid #3a3a3a;padding:1.1vh 1.2vw;min-height:7.2vh}
@@ -176,6 +176,7 @@ tr.rec td{background:color-mix(in srgb,var(--good) 12%,var(--surface));font-weig
 .tv-name{font-family:var(--head);font-weight:500;text-transform:uppercase;letter-spacing:.04em;font-size:clamp(20px,2.2vw,42px);line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tv-name small{display:block;font-family:var(--sans);text-transform:none;letter-spacing:0;font-weight:400;color:#9a9a9a;font-size:clamp(11px,.85vw,16px);margin-top:.3vh}
 .tv-make{font-family:var(--head);text-transform:uppercase;letter-spacing:.08em;font-size:clamp(18px,1.8vw,34px);color:#e5e5e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-make .model{color:#a3a3a3;margin-left:.35em}
 .tv-now{display:flex;align-items:center;gap:.8vw;font-size:clamp(13px,1.1vw,21px);color:#d4d4d4;white-space:nowrap;overflow:hidden}
 .tv-dot{width:1.1vw;height:1.1vw;min-width:12px;min-height:12px;border-radius:50%;flex-shrink:0}
 .tv-foot{display:flex;justify-content:space-between;align-items:center;gap:2vw;color:#8f8f8f;font-size:clamp(12px,.95vw,17px);padding-top:1.2vh;border-top:1px solid #2e2e2e;margin-top:1vh}
@@ -309,7 +310,7 @@ tr.rec td{background:color-mix(in srgb,var(--good) 12%,var(--surface));font-weig
     <span class="tv-sandbox" id="tvSandbox" title="Preview only. Not on the shop monitor yet.">Sandbox preview</span>
     <div class="tv-clock" id="tvClock"></div>
   </div>
-  <div class="tv-grid tv-cols"><span>Delivery</span><span>Customer</span><span>Make</span><span>In the shop now</span></div>
+  <div class="tv-grid tv-cols"><span>Delivery</span><span>Customer</span><span>Make &amp; model</span><span>In the shop now</span></div>
   <div id="tvRows"></div>
   <div class="tv-foot"><span id="tvFoot"></span><span class="tv-pages" id="tvPages"></span><span class="tv-ctrl"><button type="button" id="tvFull">Full screen</button><button type="button" id="tvBack">Back to planner</button></span></div>
 </div>
@@ -1027,6 +1028,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#importOverlay')
 /* ---------- Shop Schedule (monitor view) ---------- */
 const MAKES={HOND:'Honda',CHEV:'Chevrolet',TOYO:'Toyota',VOLV:'Volvo',SUBA:'Subaru',JEEP:'Jeep',POLE:'Polestar',BENZ:'Mercedes-Benz',MERZ:'Mercedes-Benz',INFI:'Infiniti',HYUN:'Hyundai',CHRY:'Chrysler',FORD:'Ford',MINI:'MINI',BMW:'BMW',AUDI:'Audi',KIA:'Kia',SUNBEAM:'Sunbeam',NISS:'Nissan',DODG:'Dodge',RAM:'Ram',GMC:'GMC',CADI:'Cadillac',BUIC:'Buick',LEXU:'Lexus',ACUR:'Acura',MAZD:'Mazda',MITS:'Mitsubishi',VOLK:'Volkswagen',VW:'Volkswagen',LINC:'Lincoln',TESL:'Tesla',LAND:'Land Rover',LNDR:'Land Rover',JAGU:'Jaguar',PORS:'Porsche',GENE:'Genesis',RIVI:'Rivian',FIAT:'Fiat',ALFA:'Alfa Romeo',MASE:'Maserati',LUCI:'Lucid',SCIO:'Scion',PONT:'Pontiac',SATU:'Saturn',MERC:'Mercury',HUMM:'Hummer',SMAR:'smart'};
 function makeOf(v){const t=String(v||'').trim().split(/\s+/); const w=/^\d{4}$/.test(t[0])?t[1]:t[0]; if(!w) return '—'; const k=w.toUpperCase(); return MAKES[k]||MAKES[k.slice(0,4)]||w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();}
+function yearOf(v){const t=String(v||'').trim().split(/\s+/); return /^\d{4}$/.test(t[0])?t[0]:'';}
+// Model without the year, up to two words ("Pilot Touring", "Grand Cherokee") for the Shop Schedule make & model column.
+function modelName(v){const t=String(v||'').trim().split(/\s+/); const i=/^\d{4}$/.test(t[0])?2:1; return t.slice(i,i+2).join(' ');}
 function modelOf(v){const t=String(v||'').trim().split(/\s+/); const i=/^\d{4}$/.test(t[0])?2:1; return [t[0]&&/^\d{4}$/.test(t[0])?t[0]:'',...t.slice(i,i+2)].join(' ').trim();}
 function tvName(o){o=String(o||'').trim(); if(!o) return 'Customer'; let last,first; if(o.includes(',')){[last,first]=o.split(',').map(x=>x.trim());} else {const p=o.split(/\s+/); last=p.pop(); first=p.join(' ');}
   const tc=x=>x.toLowerCase().replace(/(^|[\s'-])([a-z])/g,(m,p,c)=>p+c.toUpperCase()); return tc(last)+(first?', '+first.charAt(0).toUpperCase()+'.':'');}
@@ -1057,8 +1061,8 @@ function renderTV(){
     const cls=d===t0?'today':d===t1?'soon':ready?'ready':'';
     const tag=d===t0?'Due today':d===t1?'Due tomorrow':ready?'Work complete':'';
     return `<div class="tv-row tv-grid ${cls}"><div class="tv-date">${DOW[date.getDay()]} ${date.getMonth()+1}/${date.getDate()}${tag?`<small>${tag}</small>`:''}</div>
-      <div class="tv-name">${esc(tvName(j.owner))}<small>RO ${esc(j.ro)} · ${esc(modelOf(j.vehicle))}</small></div>
-      <div class="tv-make">${esc(makeOf(j.vehicle))}</div>
+      <div class="tv-name">${esc(tvName(j.owner))}<small>RO ${esc(j.ro)}${yearOf(j.vehicle)?` · ${yearOf(j.vehicle)}`:''}</small></div>
+      <div class="tv-make">${esc(makeOf(j.vehicle))}<span class="model">${esc(modelName(j.vehicle))}</span></div>
       <div class="tv-now"><span class="tv-dot" style="background:${ns.col}"></span><span>${esc(ns.txt)}</span></div></div>`;}).join('');
   $('#tvPages').innerHTML=pages>1?Array.from({length:pages},(_,i)=>`<i class="${i===tvPage?'on':''}"></i>`).join(''):'';
   const li=state.lastImport?new Date(state.lastImport):null;
