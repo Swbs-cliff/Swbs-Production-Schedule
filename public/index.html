@@ -1047,8 +1047,11 @@ function tvRowsData(){
   // Cars due to arrive after today stay off the shop monitor until their drop-off day.
   const future=j=>j.status==='Not arrived'&&j.drop&&j.drop>iso(TODAY);
   let later=0;
-  state.jobs.forEach(j=>{const r=sch.res.get(j.id); if(!r||r.hold||r.overflow||!sch.cal.length) return; if(future(j)){later++; return;} const pi=promiseIdx(sch,r); rows.push({j,r,pi,date:sch.cal[pi],sch});});
-  rows.sort((a,b)=>a.pi-b.pi||a.r.done-b.r.done||String(a.j.owner).localeCompare(String(b.j.owner)));
+  state.jobs.forEach(j=>{const r=sch.res.get(j.id); if(!r||r.hold||r.overflow||!sch.cal.length) return; if(future(j)){later++; return;} const pi=promiseIdx(sch,r);
+    // Delivery date = CCC ONE's promise date ("Scheduled Out" in the export). Only if that is blank, fall back to the planner's estimate.
+    const tm=/^(\d{4})-(\d{2})-(\d{2})$/.exec(j.target||''), date=tm?new Date(+tm[1],tm[2]-1,+tm[3]):sch.cal[pi];
+    rows.push({j,r,pi,date,sch});});
+  rows.sort((a,b)=>a.date-b.date||a.r.done-b.r.done||String(a.j.owner).localeCompare(String(b.j.owner)));
   return {rows,sch,later,holds:state.jobs.filter(j=>j.status==='Hold').length};
 }
 function renderTV(){
@@ -1061,8 +1064,8 @@ function renderTV(){
   const t0=iso(TODAY), t1=iso(addWorkdays(TODAY,1));
   box.innerHTML=rows.slice(tvPage*per,tvPage*per+per).map(({j,r,date,sch})=>{
     const d=iso(date), ns=nowStage(sch,r), ready=ns.txt.startsWith('Finishing');
-    const cls=d===t0?'today':d===t1?'soon':ready?'ready':'';
-    const tag=d===t0?'Due today':d===t1?'Due tomorrow':ready?'Work complete':'';
+    const cls=d<=t0?'today':d===t1?'soon':ready?'ready':'';
+    const tag=d<t0?'Past due':d===t0?'Due today':d===t1?'Due tomorrow':ready?'Work complete':'';
     return `<div class="tv-row tv-grid ${cls}"><div class="tv-date">${DOW[date.getDay()]} ${date.getMonth()+1}/${date.getDate()}${tag?`<small>${tag}</small>`:''}</div>
       <div class="tv-name">${esc(tvName(j.owner))}<small>RO ${esc(j.ro)}${yearOf(j.vehicle)?` · ${yearOf(j.vehicle)}`:''}</small></div>
       <div class="tv-make">${esc(makeOf(j.vehicle))}<span class="model">${esc(modelName(j.vehicle))}</span></div>
