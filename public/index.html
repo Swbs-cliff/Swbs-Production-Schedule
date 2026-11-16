@@ -108,12 +108,19 @@ td.num,th.num{text-align:right}
 .chip.sel{outline:2px solid var(--ink)}
 .chip.dim{opacity:.35}
 .off{font-size:11px;color:var(--muted)}
-#jobs{min-width:1700px}
-#jobs tr.sel td{background:color-mix(in srgb,var(--accent) 9%,var(--surface))}
-#jobs input[type=text]{width:100%;min-width:90px}
-#jobs input[id^=ins_]{width:110px}
-#jobs input.ro{width:72px;min-width:0;font-weight:600}
-#jobs input[type=date]{width:128px}
+#jobs,#jobsFuture{min-width:1700px}
+#jobsFuture{border-collapse:collapse}
+.pull-head{margin:4px 0 8px}
+.pull{display:grid;grid-template-columns:1fr auto;gap:2px 16px;align-items:center;padding:10px 12px;margin:0 0 8px;background:var(--surface2);border-left:4px solid var(--good)}
+.pull.none{display:block;border-left-color:var(--line)}
+.pull-car{grid-column:1}
+.pull-what{grid-column:1;color:var(--muted)}
+.pull button{grid-column:2;grid-row:1 / span 2}
+#jobs tr.sel td,#jobsFuture tr.sel td{background:color-mix(in srgb,var(--accent) 9%,var(--surface))}
+:is(#jobs,#jobsFuture) input[type=text]{width:100%;min-width:90px}
+:is(#jobs,#jobsFuture) input[id^=ins_]{width:110px}
+:is(#jobs,#jobsFuture) input.ro{width:72px;min-width:0;font-weight:600}
+:is(#jobs,#jobsFuture) input[type=date]{width:128px}
 .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid}
 .pill.good{color:var(--good);border-color:color-mix(in srgb,var(--good) 50%,var(--line));background:color-mix(in srgb,var(--good) 10%,var(--surface))}
 .pill.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,var(--line));background:color-mix(in srgb,var(--warn) 12%,var(--surface))}
@@ -250,6 +257,11 @@ tr.rec td{background:color-mix(in srgb,var(--good) 12%,var(--surface));font-weig
     </div>
     <p class="note" style="margin:0 0 8px">Jobs are scheduled top to bottom. Jobs already being worked stay first, then priority carriers (★), then everyone else, each by target date. Use the arrows to change who goes first. Hours are what's left to do; edit any cell and the schedule updates.</p>
     <div class="scroll"><table id="jobs"></table></div>
+    <h3 style="margin:22px 0 4px;font-size:17px">Scheduled to arrive <span id="futureCount" class="note"></span></h3>
+    <p class="note" style="margin:0 0 8px">Cars booked to drop off after today, in drop-off order. They stay off the shop monitor until they arrive.</p>
+    <div id="pullIns"></div>
+    <p id="futureEmpty" class="note" hidden>No cars booked to arrive later.</p>
+    <div class="scroll"><table id="jobsFuture"></table></div>
   </section>
 
   <section class="grid2">
@@ -396,7 +408,20 @@ function sampleJobs(){
   ];
   return R.map(r=>({id:uid(),ro:r[0],vehicle:r[1],owner:r[2],insurer:r[3],status:r[4],drop:r[5],parts:r[6],target:r[7],body:r[8],frame:r[9],mech:r[10],paint:r[11]}));
 }
-const DEFAULT_CLOSED='11/26/2026, 12/25/2026, 1/1/2027';
+const DEFAULT_CLOSED='11/26/2026, 11/27/2026, 12/24/2026, 12/25/2026, 12/31/2026, 1/1/2027';
+// Holiday list Cliff set on 11/14/2026. Added once to any saved schedule (keeps dates already there).
+const HOLIDAYS_2026=['11/26/2026','11/27/2026','12/24/2026','12/25/2026','12/31/2026','1/1/2027'];
+function migrate(s){
+  if(!s||!s.settings) return;
+  if(s.settings.closed===undefined) s.settings.closed=DEFAULT_CLOSED;
+  if(!s.settings.holidays2026){
+    const have=String(s.settings.closed||'').split(/[\s,]+/).filter(Boolean);
+    const key=d=>{const m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(d); return m?+m[3]*10000+ +m[1]*100+ +m[2]:d;};
+    const seen=new Set(have.map(key)); HOLIDAYS_2026.forEach(d=>{if(!seen.has(key(d))){have.push(d); seen.add(key(d));}});
+    have.sort((a,b)=>String(key(a)).localeCompare(String(key(b))));
+    s.settings.closed=have.join(', '); s.settings.holidays2026=true;
+  }
+}
 function defaultState(){return {crew:CREW_CURRENT(),jobs:sampleJobs(),settings:{fm:true,handoff:true,reassPct:20,horizon:15,closed:DEFAULT_CLOSED},isSample:true};}
 
 // The 11/13 starter data now lives in the shared online copy (see /api/state), not in this file.
@@ -434,7 +459,7 @@ function adoptRemote(n){
   if(!n||!Array.isArray(n.jobs)||!Array.isArray(n.crew)) return;
   // The monitor reloads so dates and the schedule are recomputed from scratch.
   if(!$('#tv').hidden){ try{localStorage.setItem(STORE_KEY,JSON.stringify(n));}catch(e){} location.reload(); return; }
-  state=n; syncedBody=bodyOf(state);
+  state=n; syncedBody=bodyOf(state); migrate(state);
   try{ localStorage.setItem(STORE_KEY,JSON.stringify(state)); }catch(e){}
   render();
 }
@@ -455,7 +480,7 @@ async function pullState(first){
   }catch(e){}
 }
 let selectedJob=null;
-if(state.settings.closed===undefined) state.settings.closed=DEFAULT_CLOSED;
+migrate(state);
 let CLOSED=new Set();
 if(state.settings.priority===undefined){state.settings.priority='State Farm'; state.jobs.sort((a,b)=>jobRank(a)-jobRank(b)||cmpDates(a,b));}
 function priList(){return String(state.settings.priority||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);}
@@ -599,6 +624,37 @@ function planDrop(sch,body,paint,days,insurer){
   return out;
 }
 
+/* Cars booked to drop off after today. The shop monitor hides them; the job queue lists them separately. */
+function isFuture(j){return j.status==='Not arrived'&&!!j.drop&&j.drop>iso(TODAY);}
+/* For each future car, the earliest drop-off day (tomorrow or later, before its booked day) where it
+   finishes sooner and no other car finishes later than it does today. That means it only uses open hours. */
+let pullCache={key:null,list:[]};
+function findPullIns(sch){
+  const key=bodyOf(state)+'|'+iso(TODAY); if(pullCache.key===key) return pullCache.list;
+  const base=new Map(); for(const [id,r] of sch.res) if(!r.hold&&!r.overflow) base.set(id,r.done);
+  const out=[];
+  for(const j of state.jobs){
+    if(!isFuture(j)) continue;
+    const br=sch.res.get(j.id); if(!br||br.hold||br.overflow||br.empty) continue;
+    const booked=idxOf(sch.cal,j.drop);
+    const first=sch.cal.findIndex(d=>d>TODAY); // earliest drop-off: the next work day
+    for(let k=Math.max(0,first);k<booked;k++){
+      const day=iso(sch.cal[k]);
+      const trial=state.jobs.map(x=>x.id===j.id?{...x,drop:day}:x);
+      const t=schedule(sch.crew,trial,sch.S), r=t.res.get(j.id);
+      if(!r||r.overflow||r.empty||r.done>=br.done) continue;
+      let hurts=false;
+      for(const [id,d] of base){ if(id===j.id) continue; const o=t.res.get(id); if(!o||o.overflow||o.done>d){hurts=true; break;} }
+      if(hurts) continue;
+      const startIdx=Math.min(...Object.values(r.stages).map(x=>x.first));
+      out.push({j,k,day,booked,sooner:br.done-r.done,start:startIdx,done:r.done,promise:promiseIdx(t,r)});
+      break;
+    }
+  }
+  out.sort((a,b)=>b.sooner-a.sooner||a.k-b.k);
+  pullCache={key,list:out}; return out;
+}
+
 /* ---------- rendering ---------- */
 let SCH=null;
 function render(){
@@ -739,11 +795,11 @@ function techSel(j,f,kind){
 function renderJobs(){
   const tb=$('#jobs');
   let h=`<thead><tr><th>Order</th><th>RO #</th><th>Vehicle</th><th>Owner</th><th>Insurance</th><th>Status</th><th>Drop-off</th><th>Parts ready</th><th>Target</th><th class="num">Body</th><th class="num">Frame</th><th class="num">Mech</th><th class="num">Refinish</th><th>Body tech</th><th>Painter</th><th>Body repair</th><th>Paint</th><th>Reassembly</th><th>Est. complete</th><th>Customer promise</th><th>vs. target</th><th></th></tr></thead><tbody>`;
-  state.jobs.forEach((j,i)=>{
+  const row=(j,i,fut)=>{
     const r=SCH.res.get(j.id)||{}, f=jobFlag(SCH,j);
     const ready=r.hold||r.overflow||!SCH.cal.length?'—':fmt(SCH.cal[r.done]);
-    h+=`<tr data-id="${j.id}" class="${selectedJob===j.id?'sel':''}">
-      <td style="white-space:nowrap"><button class="icon small" data-act="up" aria-label="Move ${esc(j.ro)} up" ${i===0?'disabled':''}>▲</button> <button class="icon small" data-act="down" aria-label="Move ${esc(j.ro)} down" ${i===state.jobs.length-1?'disabled':''}>▼</button></td>
+    return `<tr data-id="${j.id}" class="${selectedJob===j.id?'sel':''}">
+      <td style="white-space:nowrap">${fut?'<span class="note">—</span>':`<button class="icon small" data-act="up" aria-label="Move ${esc(j.ro)} up" ${i===0?'disabled':''}>▲</button> <button class="icon small" data-act="down" aria-label="Move ${esc(j.ro)} down" ${i===state.jobs.length-1?'disabled':''}>▼</button>`}</td>
       <td><input type="text" class="ro" id="ro_${j.id}" data-f="ro" value="${esc(j.ro)}" aria-label="RO number"></td>
       <td><input type="text" id="veh_${j.id}" data-f="vehicle" value="${esc(j.vehicle)}" style="min-width:170px" aria-label="Vehicle"></td>
       <td><input type="text" id="own_${j.id}" data-f="owner" value="${esc(j.owner)}" aria-label="Owner"></td>
@@ -762,9 +818,32 @@ function renderJobs(){
       <td class="when"><b>${r.hold||r.overflow||!SCH.cal.length?'—':fmt(SCH.cal[promiseIdx(SCH,r)])}</b></td>
       <td><span class="pill ${f.cls}">${f.text}</span></td>
       <td><button class="icon small" data-act="del" aria-label="Remove ${esc(j.ro)}">✕</button></td></tr>`;
-  });
+  };
+  const now=[], later=[];
+  state.jobs.forEach((j,i)=>(isFuture(j)?later:now).push([j,i]));
+  now.forEach(([j,i])=>{h+=row(j,i,false);});
   if(!state.jobs.length) h+='<tr><td colspan="22" class="note">No jobs yet. Import from CCC ONE or add a job.</td></tr>';
+  else if(!now.length) h+='<tr><td colspan="22" class="note">No cars in the shop right now.</td></tr>';
   tb.innerHTML=h+'</tbody>';
+  // Scheduled to arrive: same columns, sorted by drop-off day
+  later.sort((a,b)=>String(a[0].drop).localeCompare(String(b[0].drop)));
+  const head=h.slice(0,h.indexOf('<tbody>')+7);
+  $('#jobsFuture').innerHTML=later.length?head+later.map(([j,i])=>row(j,i,true)).join('')+'</tbody>':'';
+  $('#futureCount').textContent=later.length?`(${later.length})`:'';
+  $('#futureEmpty').hidden=!!later.length;
+  renderPullIns(later.length);
+}
+function renderPullIns(n){
+  const box=$('#pullIns');
+  if(!n||!SCH.cal.length){box.innerHTML=''; return;}
+  const list=findPullIns(SCH);
+  if(!list.length){box.innerHTML='<div class="pull none"><b>No early slots right now.</b> Bringing any of these cars in sooner would push back a car that\'s already in the shop.</div>'; return;}
+  box.innerHTML=`<div class="pull-head"><b>Could come in early to fill open time</b> <span class="note">${list.length} of ${n}. Each one only uses hours that would otherwise sit idle, so no other car finishes later. Each is checked on its own; once you move one, the list updates.</span></div>`+
+    list.map(p=>{const j=p.j; return `<div class="pull" data-id="${j.id}">
+      <div class="pull-car"><b>RO ${esc(j.ro)}</b> · ${esc(ownerShort(j))} · ${esc([yearOf(j.vehicle),makeOf(j.vehicle),modelName(j.vehicle)].filter(Boolean).join(' '))}${isPri(j.insurer)?' <span title="Priority carrier" style="color:var(--warn)">★</span>':''}</div>
+      <div class="pull-what">Booked to drop off <b>${fmt(SCH.cal[p.booked])}</b>. Could come in <b>${fmt(SCH.cal[p.k])}</b>, work starts ${fmt(SCH.cal[p.start])}, done ${fmt(SCH.cal[p.done])}: <b>${p.sooner} work day${p.sooner===1?'':'s'} sooner</b>.</div>
+      <button type="button" class="small" data-act="pullin" data-day="${p.day}">Move drop-off to ${fmt(SCH.cal[p.k])}</button></div>`;}).join('')+
+    '<p class="note" style="margin:6px 0 0">Call the customer first. The button only changes the drop-off date here; update the appointment in CCC ONE too, or the next Daily refresh will put the old date back.</p>';
 }
 
 function renderPlanner(){
@@ -822,11 +901,13 @@ $('#setReass').addEventListener('change',e=>{state.settings.reassPct=Math.max(0,
 ['#pBody','#pPaint','#pIns'].forEach(s=>$(s).addEventListener('input',renderPlanner));
 document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const [x,y]=b.dataset.preset.split(','); $('#pBody').value=x; $('#pPaint').value=y; renderPlanner();}));
 
-$('#jobs').addEventListener('change',e=>{
+$('#jobs').closest('section').addEventListener('change',e=>{
   const tr=e.target.closest('tr[data-id]'); if(!tr) return; const j=state.jobs.find(x=>x.id===tr.dataset.id); const f=e.target.dataset.f; if(!j||!f) return;
   j[f]=['body','frame','mech','paint'].includes(f)?Math.max(0,+e.target.value||0):e.target.value; render();
 });
-$('#jobs').addEventListener('click',e=>{
+$('#jobs').closest('section').addEventListener('click',e=>{
+  const pb=e.target.closest('[data-act=pullin]');
+  if(pb){const j=state.jobs.find(x=>x.id===pb.closest('.pull').dataset.id); if(j){j.drop=pb.dataset.day; render(); toast('Drop-off moved to '+fmt(parseIso(pb.dataset.day))+'. Update CCC ONE too.');} return;}
   const tr=e.target.closest('tr[data-id]'); if(!tr) return; const i=state.jobs.findIndex(x=>x.id===tr.dataset.id);
   const act=e.target.dataset.act;
   if(act==='up'&&i>0){[state.jobs[i-1],state.jobs[i]]=[state.jobs[i],state.jobs[i-1]]; render();}
@@ -835,7 +916,7 @@ $('#jobs').addEventListener('click',e=>{
   else if(!e.target.closest('input,select,button')){selectedJob=selectedJob===tr.dataset.id?null:tr.dataset.id; renderBoard(); renderJobs();}
 });
 $('#board').addEventListener('click',e=>{const c=e.target.closest('.chip'); if(!c) return; selectedJob=selectedJob===c.dataset.job?null:c.dataset.job; renderBoard(); renderJobs();
-  if(selectedJob){const row=document.querySelector(`#jobs tr[data-id="${selectedJob}"]`); if(row) row.scrollIntoView({block:'nearest',behavior:'smooth'});}});
+  if(selectedJob){const row=document.querySelector(`#jobs tr[data-id="${selectedJob}"],#jobsFuture tr[data-id="${selectedJob}"]`); if(row) row.scrollIntoView({block:'nearest',behavior:'smooth'});}});
 $('#btnAddJob').addEventListener('click',()=>{state.jobs.push({id:uid(),ro:'',vehicle:'',owner:'',insurer:'',status:'Not arrived',drop:iso(TODAY),parts:'',target:'',body:0,frame:0,mech:0,paint:0}); render(); const last=state.jobs[state.jobs.length-1]; const inp=document.getElementById('ro_'+last.id); if(inp) inp.focus();});
 $('#btnAutoSort').addEventListener('click',()=>{sortQueue(); render(); toast('Queue sorted: in-shop jobs, then priority carriers, then everyone else');});
 
@@ -1045,7 +1126,7 @@ let tvPage=0, tvTimer=null, tvIdle=null;
 function tvRowsData(){
   const sch=schedule(state.crew,state.jobs,state.settings); const rows=[];
   // Cars due to arrive after today stay off the shop monitor until their drop-off day.
-  const future=j=>j.status==='Not arrived'&&j.drop&&j.drop>iso(TODAY);
+  const future=isFuture;
   let later=0;
   state.jobs.forEach(j=>{const r=sch.res.get(j.id); if(!r||r.hold||r.overflow||!sch.cal.length) return; if(future(j)){later++; return;} const pi=promiseIdx(sch,r);
     // Delivery date = CCC ONE's promise date ("Scheduled Out" in the export). Only if that is blank, fall back to the planner's estimate.
